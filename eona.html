@@ -57,7 +57,7 @@
       padding: 24px 32px;
       display: flex;
       justify-content: space-between;
-      align-items: center;
+      align-items: flex-start;
       z-index: 100;
     }
     
@@ -74,30 +74,44 @@
       line-height: 1;
       text-box: trim-both cap alphabetic;
     }
+    .title {
+      height: 32px;
+      display: flex;
+      align-items: center;
+    }
     .title img { display: block; }
 
-    .header-left { flex: 1; display: flex; align-items: center; }
-    .header-center { flex: 1; display: flex; justify-content: center; }
-    .header-right { flex: 1; display: flex; justify-content: flex-end; align-items: center; gap: 12px; }
+    .header-left { flex: 1; display: flex; align-items: flex-start; }
+    .header-center { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 24px; }
+    .header-right { flex: 1; display: flex; justify-content: flex-end; align-items: flex-start; }
 
     /* === Layers control === */
     .layers-control {
       display: flex;
       flex-direction: column;
-      align-items: center;
+      align-items: flex-start;
       position: relative;
     }
 
     .layers-btn {
       display: flex;
       flex-direction: column;
-      align-items: center;
+      align-items: flex-start;
       gap: 8px;
       background: none;
       border: none;
       cursor: pointer;
       padding: 0;
       pointer-events: auto;
+    }
+
+    .layers-icon-slot {
+      display: flex;
+      align-self: center;
+    }
+
+    .layers-btn.wide-icon .layers-icon-slot {
+      margin-left: -2.5px;
     }
 
     .layers-label {
@@ -105,65 +119,37 @@
       font-size: 10px;
       letter-spacing: 1px;
       text-transform: uppercase;
-      color: #aaaaaa;
+      color: #ffffff;
       line-height: 1;
       text-box: trim-both cap alphabetic;
+      white-space: nowrap;
     }
-    .layers-btn:hover .layers-label,
-    .layers-btn.active:hover .layers-label { color: #ffffff; }
+    .layers-btn.active .layers-label { display: none; }
 
-    /* Grid with fixed 24px columns — vlines and icons share exact column centres */
     .layers-tree {
-      display: grid;
-      grid-template-columns: repeat(3, 24px);
-      column-gap: 40px;
-      position: absolute;
-      top: calc(100% + 8px);
-      left: 50%;
-      transform: translateX(-50%);
-    }
-
-    /* Horizontal connector — left/right 12px = centre of each outer column */
-    .layers-tree::before {
-      content: '';
-      position: absolute;
-      height: 1px;
-      background: #666666;
-      top: 12px;
-      left: 12px;
-      right: 12px;
-      pointer-events: none;
-    }
-
-    .layer-col {
       display: flex;
       flex-direction: column;
-      align-items: center;
+      gap: 12px;
+      position: absolute;
+      top: calc(100% + 12px);
+      left: 0;
     }
 
-    /* Fixed-height connector section; vline sits at the bottom (align-bottom) */
-    .connector-section {
-      height: 24px;
-      display: flex;
-      align-items: flex-end;
-      justify-content: center;
-    }
-
-    .vline { width: 1px; background: #666666; }
-    .vline-middle { height: 24px; }
-    .vline-outer  { height: 12px; }
-
+    /* padding-left: 4px = 12px original offset − 8px nudge applied to hover/active icon above */
     .toggle {
       display: flex;
-      flex-direction: column;
+      flex-direction: row;
       align-items: center;
       gap: 8px;
+      padding-left: 9.5px;
       background: none;
       border: none;
       cursor: pointer;
-      padding: 0;
-      margin-top: 8px;
       pointer-events: auto;
+    }
+
+    .toggle-icon-slot {
+      display: flex;
     }
 
     .toggle-label {
@@ -176,7 +162,7 @@
       color: #666666;
       white-space: nowrap;
     }
-    .toggle.active .toggle-label { color: var(--accent); }
+    .toggle.active .toggle-label { color: #E34E2A; }
     
     .clock-container {
       position: relative;
@@ -306,8 +292,10 @@
     .info-center {
       flex: 1;
       display: flex;
+      flex-direction: column;
       align-items: center;
       justify-content: center;
+      gap: 16px;
     }
 
     .info-bottom {
@@ -317,11 +305,8 @@
     }
 
     .info-event-name {
-      flex: 1;
-      box-sizing: border-box;
       display: flex;
       justify-content: center;
-      align-items: flex-end;
     }
 
     #event-name-suffix {
@@ -366,6 +351,7 @@
       font-weight: 400;
       color: #ffffff;
       line-height: 1.3;
+      text-box: trim-both cap alphabetic;
       text-align: center;
       width: 300px;
     }
@@ -384,9 +370,9 @@
 
     #time-display {
       font-family: var(--font-mono);
-      font-size: 21px;
+      font-size: 16px;
       font-weight: 400;
-      color: #aaaaaa;
+      color: #666666;
       line-height: 1;
       text-box: trim-both cap alphabetic;
     }
@@ -411,20 +397,35 @@
     /* === Scrubbing === */
 
     /* Hidden by default — shown only when the body has .scrubbing */
-    .return-to-now {
+    .return-wrapper {
       display: none;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 8px;
+    }
+    body.scrubbing .return-wrapper { display: flex; }
+
+    .reset-label {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      color: #E34E2A;
+      line-height: 1;
+      text-box: trim-both cap alphabetic;
+      white-space: nowrap;
+      pointer-events: none;
+    }
+
+    .return-to-now {
+      display: block;
       cursor: pointer;
       pointer-events: auto;
-      margin-top: -20px;
-      margin-bottom: -20px;
-      margin-right: -20px;
+      flex-shrink: 0;
+      align-self: center;
     }
     .return-to-now rect { transition: fill 0.2s ease; }
     .return-to-now:hover rect { fill: #F78678; }
-    body.scrubbing .return-to-now {
-      display: inline-block;
-    }
-    body.scrubbing #time-display { color: #666666; }
 
     /* Cursor cue DURING AN ACTIVE DRAG ONLY. We can't gate this on
        .scrubbing (which persists for the whole scrubbed-time session) because
@@ -441,52 +442,54 @@
       :root { --clock-size: 90vmin; }
       .header, .info-panel { padding: 16px 20px; }
       .header-center { gap: 16px; }
-      #time-display { font-size: 18px; }
+      #time-display { font-size: 16px; }
     }
   </style>
 </head>
 <body>
   <header class="header">
     <div class="header-left">
-      <div class="title"><img src="images/logo.svg" alt="Eona.Earth" width="70"></div>
-    </div>
-    <div class="header-center">
       <div class="layers-control">
         <button class="layers-btn" id="layers-btn">
-          <img id="layers-icon" src="images/layers-default.svg" alt="">
+          <div class="layers-icon-slot">
+            <img id="layers-icon" src="images/layers-default.svg" alt="">
+          </div>
           <span class="layers-label">Layers</span>
         </button>
         <div class="layers-tree" id="layers-tree" style="display: none">
-          <div class="layer-col">
-            <div class="connector-section"><div class="vline vline-outer"></div></div>
-            <button class="toggle active" data-layer="earth">
+          <button class="toggle active" data-layer="earth">
+            <div class="toggle-icon-slot">
               <img class="toggle-icon" src="images/earth-active.svg" data-active="images/earth-active.svg" data-inactive="images/earth-inactive.svg" alt="">
-              <span class="toggle-label">Earth</span>
-            </button>
-          </div>
-          <div class="layer-col">
-            <div class="connector-section"><div class="vline vline-middle"></div></div>
-            <button class="toggle active" data-layer="infographic">
+            </div>
+            <span class="toggle-label">Earth</span>
+          </button>
+          <button class="toggle active" data-layer="infographic">
+            <div class="toggle-icon-slot">
               <img class="toggle-icon" src="images/eons-active.svg" data-active="images/eons-active.svg" data-inactive="images/eons-inactive.svg" alt="">
-              <span class="toggle-label">Eons</span>
-            </button>
-          </div>
-          <div class="layer-col">
-            <div class="connector-section"><div class="vline vline-outer"></div></div>
-            <button class="toggle active" data-layer="clock">
+            </div>
+            <span class="toggle-label">Eons</span>
+          </button>
+          <button class="toggle active" data-layer="clock">
+            <div class="toggle-icon-slot">
               <img class="toggle-icon" src="images/clock-active.svg" data-active="images/clock-active.svg" data-inactive="images/clock-inactive.svg" alt="">
-              <span class="toggle-label">Clock</span>
-            </button>
-          </div>
+            </div>
+            <span class="toggle-label">Clock</span>
+          </button>
         </div>
       </div>
     </div>
-    <div class="header-right">
+    <div class="header-center">
+      <div class="title"><img src="images/logo.svg" alt="Eona.Earth" width="86" height="20"></div>
       <span id="time-display">00:00:00</span>
-      <svg id="return-to-now" class="return-to-now" role="button" tabindex="0" aria-label="Return to now" width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <rect width="40" height="40" rx="20" fill="#E34E2A"/>
-        <path d="M20 11.5C24.6944 11.5 28.5 15.3056 28.5 20C28.5 24.6944 24.6944 28.5 20 28.5C15.3056 28.5 11.5 24.6944 11.5 20H12.5C12.5 24.1421 15.8579 27.5 20 27.5C24.1421 27.5 27.5 24.1421 27.5 20C27.5 15.8579 24.1421 12.5 20 12.5C17.9616 12.5001 16.114 13.3128 14.7617 14.6328L14.4121 14.2754L14.0625 13.917C15.594 12.4219 17.6901 11.5001 20 11.5ZM13.5508 14.4668C13.7139 14.2769 13.8835 14.0927 14.0625 13.918L14.4121 14.2754L14.7607 14.6328C14.5865 14.8029 14.4207 14.9816 14.2637 15.168H17.0508V16.168H12.5508V11.668H13.5508V14.4668Z" fill="black"/>
-      </svg>
+    </div>
+    <div class="header-right">
+      <div class="return-wrapper">
+        <svg id="return-to-now" class="return-to-now" role="button" tabindex="0" aria-label="Return to now" width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect width="32" height="32" rx="16" fill="#E34E2A"/>
+          <path d="M16 7.5C20.6944 7.5 24.5 11.3056 24.5 16C24.5 20.6944 20.6944 24.5 16 24.5C11.3056 24.5 7.5 20.6944 7.5 16H8.5C8.5 20.1421 11.8579 23.5 16 23.5C20.1421 23.5 23.5 20.1421 23.5 16C23.5 11.8579 20.1421 8.5 16 8.5C13.9616 8.50006 12.114 9.31282 10.7617 10.6328L10.4121 10.2754L10.0625 9.91699C11.594 8.42191 13.6901 7.50006 16 7.5ZM9.55078 10.4668C9.71392 10.2769 9.88349 10.0927 10.0625 9.91797L10.4121 10.2754L10.7607 10.6328C10.5865 10.8029 10.4207 10.9816 10.2637 11.168H13.0508V12.168H8.55078V7.66797H9.55078V10.4668Z" fill="black"/>
+        </svg>
+        <span class="reset-label">Reset</span>
+      </div>
     </div>
   </header>
   
@@ -546,14 +549,14 @@
   
   <div class="info-panel">
     <div class="info-center">
+      <div class="info-event-name">
+        <span id="event-name-suffix"></span>
+      </div>
       <div class="center-event-desc" id="event-desc-center"></div>
     </div>
     <div class="info-bottom">
       <div class="info-left">
         <div class="era" id="era-display">Hadean Eon</div>
-      </div>
-      <div class="info-event-name">
-        <span id="event-name-suffix"></span>
       </div>
       <div class="info-right">
         <div class="center-timestamp"><span id="years-display">4.5 billion years ago</span></div>
@@ -2027,13 +2030,16 @@
 
       layersBtn.addEventListener('mouseenter', () => {
         layersIcon.src = layersOpen ? 'images/active-hover.svg' : 'images/layers-hover.svg';
+        layersBtn.classList.add('wide-icon');
       });
       layersBtn.addEventListener('mouseleave', () => {
         layersIcon.src = layersOpen ? 'images/layers-active.svg' : 'images/layers-default.svg';
+        layersBtn.classList.toggle('wide-icon', layersOpen);
       });
       layersBtn.addEventListener('click', () => {
         layersOpen = !layersOpen;
         layersBtn.classList.toggle('active', layersOpen);
+        layersBtn.classList.toggle('wide-icon', layersOpen);
         layersTree.style.display = layersOpen ? '' : 'none';
         layersIcon.src = layersOpen ? 'images/layers-active.svg' : 'images/layers-default.svg';
       });

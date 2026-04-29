@@ -385,7 +385,8 @@ Fixed bottom bar, `padding: 24px 32px 32px`, flex row space-between, `align-item
 
 **Top-left header** (`.header`, flex row, `align-items: flex-end`):
 - `.title`: `<img src="images/logo.svg" width="70">` — SVG logo replaces text.
-- `.toggles`: right-aligned layer toggle buttons.
+- `.layers-control` (header-center): layers button + expandable tree. "Layers" label is white (`#ffffff`); hidden (`display: none`) when tree is expanded (`.layers-btn.active`). `layers-default.svg` = white strokes, `layers-hover.svg` = white strokes, `layers-active.svg` = white strokes.
+- **Layer tree**: `connector-section` height 16px; horizontal connector line at `top: 8px`; `vline-outer` 8px; `vline-middle` 16px.
 
 **Images directory:**
 - `images/logo.svg` — wordmark/logo used in `.title`
@@ -394,13 +395,14 @@ Fixed bottom bar, `padding: 24px 32px 32px`, flex row space-between, `align-item
 **Left column** (`.info-left`, `flex: 1`):
 - `.era` (`#era-display`): current eon/era name. Space Mono Regular 1em `#aaaaaa`.
 
-**Centre column** (`.info-center`, flex-column, `align-items: center`, `justify-content: flex-end`, `flex: 1`, `align-self: flex-end`):
-- `#event-desc-center` (`.center-event-desc`): event description. Above the timestamp row. `display: none` → `display: block` via `.visible`. Fraunces Regular 16px `#ffffff`, line-height 1.3, `text-align: center`, fixed `width: 300px`, `margin-bottom: 32px`. Grows upward; timestamp stays at baseline.
-- `.center-timestamp`: `#years-display` (Space Mono bold 0.75em `#FF4D00`) + `#event-name-suffix` (same style, appends ` • Event Name` when active).
+**Centre column** (`.info-center`, flex-column, `align-items: center`, `justify-content: flex-end`, `gap: 16px`, `flex: 1`):
+- `.info-event-name` → `#event-name-suffix`: event name label. Space Mono bold 12px `#FF4D00`. Empty when no event active. Sits 16px above event description via column gap.
+- `#event-desc-center` (`.center-event-desc`): event description. `display: none` → `display: block` via `.visible`. Fraunces Regular 16px `#ffffff`, line-height 1.3, `text-align: center`, fixed `width: 300px`.
+- `.center-timestamp` (in `.info-bottom` centre): `#years-display` (Space Mono bold 0.75em `#FF4D00`).
 
 **Right column** (`.info-right`, flex-row, `align-items: flex-end`, `justify-content: flex-end`, `gap: 16px`, `flex: 1`):
 - `#time-display`: local time. Space Mono Regular 1em `#aaaaaa`. Dims to `#666666` when `body.scrubbing`.
-- `#return-to-now` (`.return-to-now`): pill button. Space Mono Regular 0.75em, black text (`#000000`), orange fill (`#FF4D00`), padding 8px 12px, `border-radius: 999px`. `display: none` by default; `display: inline-flex` when `body.scrubbing`. `transform: translateY(12px)` drops it to optical centre with the time text.
+- `#return-to-now` (`.return-to-now`): 32×32px SVG circle button, `#E34E2A` fill. `display: none` by default; `display: inline-block` when `body.scrubbing`.
 
 All Space Mono text: `line-height: 1`, `text-box: trim-both cap alphabetic`.
 
