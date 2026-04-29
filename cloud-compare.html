@@ -1,0 +1,704 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cloud Render Comparison</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: #000;
+    color: #aaa;
+    font-family: 'Space Mono', monospace;
+    -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
+    min-height: 100vh;
+  }
+
+  .header {
+    padding: 32px 40px 16px;
+    display: flex;
+    align-items: baseline;
+    gap: 16px;
+    border-bottom: 1px solid #1a1a1a;
+  }
+
+  .header h1 {
+    font-size: 13px;
+    font-weight: 700;
+    color: #FF4D00;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .header span {
+    font-size: 11px;
+    color: #555;
+  }
+
+  .controls {
+    padding: 24px 40px;
+    border-bottom: 1px solid #1a1a1a;
+    display: flex;
+    gap: 32px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+
+  .control-group {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .control-group label {
+    font-size: 10px;
+    color: #555;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+
+  .control-group input[type="range"] {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 160px;
+    height: 2px;
+    background: #333;
+    outline: none;
+    border-radius: 1px;
+  }
+
+  .control-group input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: #FF4D00;
+    cursor: pointer;
+  }
+
+  .control-group .val {
+    font-size: 10px;
+    color: #777;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .palette-row {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+  }
+
+  .palette-btn {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    border: 2px solid transparent;
+    cursor: pointer;
+    transition: border-color 0.2s;
+  }
+
+  .palette-btn.active {
+    border-color: #FF4D00;
+  }
+
+  .presets {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+
+  .preset-btn {
+    font-family: 'Space Mono', monospace;
+    font-size: 9px;
+    padding: 4px 8px;
+    background: #111;
+    color: #777;
+    border: 1px solid #333;
+    border-radius: 3px;
+    cursor: pointer;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    transition: all 0.2s;
+  }
+
+  .preset-btn:hover {
+    border-color: #FF4D00;
+    color: #FF4D00;
+  }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0;
+    padding: 0;
+  }
+
+  @media (max-width: 1000px) {
+    .grid { grid-template-columns: repeat(2, 1fr); }
+  }
+
+  .cell {
+    border-right: 1px solid #1a1a1a;
+    border-bottom: 1px solid #1a1a1a;
+    padding: 24px 16px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .cell:last-child { border-right: none; }
+
+  .cell-label {
+    font-size: 11px;
+    font-weight: 700;
+    color: #FF4D00;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+    text-align: center;
+  }
+
+  .cell-desc {
+    font-size: 9.5px;
+    color: #555;
+    text-align: center;
+    line-height: 1.5;
+    margin-bottom: 16px;
+    max-width: 240px;
+    min-height: 48px;
+  }
+
+  .cell-usecase {
+    font-size: 9px;
+    color: #333;
+    text-align: center;
+    margin-top: 12px;
+    line-height: 1.4;
+    max-width: 220px;
+  }
+
+  .cell-usecase em {
+    color: #555;
+    font-style: normal;
+  }
+
+  canvas {
+    border-radius: 50%;
+    display: block;
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>Cloud Render Lab</h1>
+  <span>Four cloud types for Eona</span>
+</div>
+
+<div class="controls">
+  <div class="control-group">
+    <label>Cloud Density</label>
+    <input type="range" id="density" min="0.00" max="0.80" step="0.01" value="0.26">
+    <span class="val" id="density-val">0.26</span>
+  </div>
+  <div class="control-group">
+    <label>Cloud Shape (band&#x2194;swirl)</label>
+    <input type="range" id="shape" min="0" max="1" step="0.05" value="0.85">
+    <span class="val" id="shape-val">0.85</span>
+  </div>
+  <div class="control-group">
+    <label>Rotation Speed</label>
+    <input type="range" id="speed" min="0" max="3" step="0.1" value="1.0">
+    <span class="val" id="speed-val">1.0&#xd7;</span>
+  </div>
+  <div class="control-group">
+    <label>Palette</label>
+    <div class="palette-row">
+      <div class="palette-btn active" data-palette="modern" style="background: linear-gradient(135deg, #2F6F9E, #5FAE55)" title="Modern Earth"></div>
+      <div class="palette-btn" data-palette="hadean" style="background: linear-gradient(135deg, #8F220F, #E34E2A)" title="Molten Hadean"></div>
+      <div class="palette-btn" data-palette="archean" style="background: linear-gradient(135deg, #556B1A, #3F332E)" title="Hazy Archean"></div>
+      <div class="palette-btn" data-palette="hothouse" style="background: linear-gradient(135deg, #159F78, #7C6E60)" title="Hothouse"></div>
+      <div class="palette-btn" data-palette="snowball" style="background: linear-gradient(135deg, #A9B5E0, #D6E4F2)" title="Cryogenian"></div>
+    </div>
+  </div>
+  <div class="control-group">
+    <label>Presets</label>
+    <div class="presets">
+      <button class="preset-btn" data-d="0.80" data-s="0.0" data-p="hadean">Steam 0.80</button>
+      <button class="preset-btn" data-d="0.38" data-s="0.0" data-p="archean">Archean 0.38</button>
+      <button class="preset-btn" data-d="0.26" data-s="1.0" data-p="modern">Modern 0.26</button>
+      <button class="preset-btn" data-d="0.42" data-s="0.4" data-p="hothouse">Hothouse 0.42</button>
+      <button class="preset-btn" data-d="0.68" data-s="0.0" data-p="snowball">Cryo 0.68</button>
+    </div>
+  </div>
+</div>
+
+<div class="grid" id="grid"></div>
+
+<script>
+const SIZE = 280;
+const APPROACHES = [
+  {
+    id: 'warped',
+    label: 'Warped',
+    desc: 'Domain-warped fbm, 0.04 smoothstep. Good band\u2194swirl range. Can clump at mid densities.',
+    usecase: '<em>Current shader.</em> Baseline for comparison.',
+  },
+  {
+    id: 'ridged_wisps',
+    label: 'Ridged Wisps',
+    desc: 'Ridged multifractal \u2014 bright creases where noise folds. Cirrus-like wisps, dependent octaves.',
+    usecase: '<em>Thin cirrus character.</em> Standalone ridged turbulence.',
+  },
+  {
+    id: 'warped_layers',
+    label: 'Warped Layers',
+    desc: 'Three transparent fbm layers at different scales/speeds. Translucent\u2192solid breadth. Camo breakup at mid-range.',
+    usecase: '<em>Humid haze.</em> Hothouse, Steam World. Depth without hard edges.',
+  },
+  {
+    id: 'warped_wisps',
+    label: 'Warped Wisps',
+    desc: 'Warped fbm body + ridged detail + edge erosion. Keeps Warped\u2019s shape range, breaks up clumpy silhouettes.',
+    usecase: '<em>Primary replacement candidate.</em> Brushstroke feel without stiffness.',
+  },
+];
+
+const PALETTES = {
+  modern:   { c0: [0.96,0.97,0.98], c1: [0.37,0.68,0.33], c2: [0.18,0.43,0.62], c3: [0.09,0.27,0.39] },
+  hadean:   { c0: [0.98,0.75,0.54], c1: [0.89,0.31,0.16], c2: [0.56,0.13,0.06], c3: [0.24,0.05,0.02] },
+  archean:  { c0: [0.97,0.85,0.67], c1: [0.25,0.20,0.18], c2: [0.33,0.42,0.10], c3: [0.18,0.23,0.06] },
+  hothouse: { c0: [0.89,0.78,0.66], c1: [0.49,0.43,0.38], c2: [0.08,0.62,0.47], c3: [0.12,0.35,0.46] },
+  snowball: { c0: [0.95,0.95,0.96], c1: [0.84,0.89,0.95], c2: [0.66,0.71,0.88], c3: [0.18,0.27,0.44] },
+};
+
+let currentPalette = 'modern';
+let density = 0.26;
+let shape = 0.85;
+let speedMul = 1.0;
+
+const VERT = `
+  attribute vec3 position;
+  varying vec3 vPos;
+  void main() {
+    vPos = position;
+    gl_Position = vec4(position.xy, 0.0, 1.0);
+  }
+`;
+
+const PREAMBLE = `
+  precision highp float;
+  varying vec3 vPos;
+  uniform float time;
+  uniform float cloudDens;
+  uniform float cloudShp;
+  uniform vec3 c0, c1, c2, c3;
+
+  float hash31(vec3 p) {
+    p = fract(p * vec3(443.8975, 397.2973, 491.1871));
+    p += dot(p, p.yzx + 19.19);
+    return fract((p.x + p.y) * p.z);
+  }
+
+  float noise3d(vec3 p) {
+    vec3 i = floor(p);
+    vec3 f = fract(p);
+    f = f * f * (3.0 - 2.0 * f);
+    return mix(
+      mix(mix(hash31(i), hash31(i + vec3(1,0,0)), f.x),
+          mix(hash31(i + vec3(0,1,0)), hash31(i + vec3(1,1,0)), f.x), f.y),
+      mix(mix(hash31(i + vec3(0,0,1)), hash31(i + vec3(1,0,1)), f.x),
+          mix(hash31(i + vec3(0,1,1)), hash31(i + vec3(1,1,1)), f.x), f.y),
+      f.z);
+  }
+
+  float fbm4(vec3 p) {
+    float v = 0.0, a = 0.5;
+    for (int i = 0; i < 4; i++) { v += a * noise3d(p); p *= 2.02; a *= 0.5; }
+    return v;
+  }
+
+  float fbm2(vec3 p) {
+    return noise3d(p) * 0.65 + noise3d(p * 2.1 + vec3(11.0)) * 0.35;
+  }
+
+  float ridgedNoise(vec3 p) {
+    return 1.0 - abs(noise3d(p) * 2.0 - 1.0);
+  }
+
+  float ridgedFbm(vec3 p) {
+    float v = 0.0, a = 0.5, prev = 1.0;
+    for (int i = 0; i < 5; i++) {
+      float n = ridgedNoise(p);
+      v += a * n * prev;
+      prev = n;
+      p *= 2.2;
+      a *= 0.45;
+    }
+    return v;
+  }
+
+  vec3 rotY(vec3 v, float a) {
+    float c = cos(a), s = sin(a);
+    return vec3(v.x*c + v.z*s, v.y, -v.x*s + v.z*c);
+  }
+
+  vec3 surfaceColor(vec3 p) {
+    float n1 = fbm4(p * 3.0 + vec3(50.0));
+    float n2 = fbm4(p * 3.0 + vec3(100.0));
+    float land = smoothstep(0.44, 0.48, n1);
+    vec3 sea = mix(c3, c2, smoothstep(0.3, 0.6, n2));
+    return mix(sea, c1, land);
+  }
+`;
+
+const CLOUD_FUNCTIONS = {
+
+  // ═══ Warped ═══
+  warped: `
+    float cloudMask(vec3 p) {
+      if (cloudDens < 0.001) return 0.0;
+      vec3 cp = rotY(p, time * 0.15);
+      vec3 sOff = vec3(time * 0.004, time * 0.003, time * 0.0025);
+      float yAniso = mix(3.0, 1.0, cloudShp);
+      float warpStr = mix(0.35, 1.6, cloudShp);
+      vec3 warp = vec3(
+        fbm4(cp * 1.8 + sOff),
+        fbm4(cp * 1.8 + sOff + vec3(13.1)),
+        fbm4(cp * 1.8 + sOff + vec3(27.7))
+      ) - 0.5;
+      vec3 sp = vec3(cp.x + sOff.x*0.2, cp.y * yAniso, cp.z + sOff.y*0.2) + warp * warpStr;
+      float cA = fbm2(sp * 2.0);
+      vec3 sp2 = vec3(cp.x*0.7, cp.y*yAniso*0.55, cp.z*0.7) + warp * warpStr * 0.6;
+      float cB = fbm2(sp2 + sOff * 0.1);
+      float cC = fbm4(cp * 6.5 + sOff * 0.7 + vec3(55.0));
+      float field = cA * 0.60 + cB * 0.30 + cC * 0.18;
+      float latFade = 1.0 - pow(abs(cp.y), 3.0) * 0.25;
+      float thresh = mix(0.78, 0.18, cloudDens);
+      return smoothstep(thresh, thresh + 0.04, field) * latFade;
+    }
+  `,
+
+  // ═══ Ridged Wisps ═══
+  ridged_wisps: `
+    float cloudMask(vec3 p) {
+      if (cloudDens < 0.001) return 0.0;
+      vec3 cp = rotY(p, time * 0.15);
+      vec3 sOff = vec3(time * 0.004, time * 0.002, time * 0.003);
+
+      float yStretch = mix(2.0, 1.0, cloudShp);
+      vec3 sp = vec3(cp.x, cp.y * yStretch, cp.z);
+
+      float warpN = noise3d(sp * 1.5 + sOff);
+      sp += vec3(warpN - 0.5) * mix(0.2, 0.7, cloudShp) * 0.4;
+
+      float field = ridgedFbm(sp * 2.5 + sOff);
+
+      float latFade = 1.0 - pow(abs(cp.y), 3.0) * 0.25;
+      float thresh = mix(0.72, 0.12, cloudDens);
+      return smoothstep(thresh, thresh + 0.06, field) * latFade;
+    }
+  `,
+
+  // ═══ Warped Layers ═══
+  warped_layers: `
+    float singleLayer(vec3 cp, vec3 off, float scale, float yAni, float warpAmt) {
+      vec3 sp = vec3(cp.x, cp.y * yAni, cp.z) * scale + off;
+      float w1 = noise3d(sp * 0.7 + off) - 0.5;
+      float w2 = noise3d(sp * 0.7 + off + vec3(17.0)) - 0.5;
+      sp.x += w1 * warpAmt;
+      sp.z += w2 * warpAmt;
+      return fbm2(sp);
+    }
+
+    float cloudMask(vec3 p) {
+      if (cloudDens < 0.001) return 0.0;
+      vec3 cp = rotY(p, time * 0.12);
+
+      float yAni = mix(2.5, 1.0, cloudShp);
+      float warpAmt = mix(0.25, 0.7, cloudShp);
+
+      vec3 off1 = vec3(time * 0.005, time * 0.003, time * 0.004);
+      vec3 off2 = vec3(time * 0.003, time * 0.005, time * 0.002) + vec3(30.0);
+      vec3 off3 = vec3(time * 0.002, time * 0.004, time * 0.006) + vec3(60.0);
+
+      float l1 = singleLayer(cp, off1, 1.6, yAni, warpAmt);
+      float l2 = singleLayer(cp, off2, 3.0, yAni * 0.8, warpAmt * 0.8);
+      float l3 = singleLayer(cp, off3, 5.5, yAni * 0.6, warpAmt * 0.5);
+
+      float tBase = mix(0.72, 0.06, cloudDens * cloudDens * 0.6 + cloudDens * 0.4);
+      float stagger = mix(0.12, 0.005, cloudDens);
+
+      float t1 = tBase;
+      float t2 = tBase + stagger;
+      float t3 = tBase + stagger * 2.0;
+
+      float edgeW = mix(0.14, 0.03, cloudDens);
+
+      float m1 = smoothstep(t1, t1 + edgeW, l1);
+      float m2 = smoothstep(t2, t2 + edgeW * 0.8, l2);
+      float m3 = smoothstep(t3, t3 + edgeW * 0.6, l3);
+
+      float w1 = mix(0.45, 0.92, cloudDens);
+      float w2 = mix(0.28, 0.80, cloudDens);
+      float w3 = mix(0.18, 0.70, cloudDens);
+
+      float combined = 1.0 - (1.0 - m1 * w1) * (1.0 - m2 * w2) * (1.0 - m3 * w3);
+
+      float latFade = 1.0 - pow(abs(cp.y), 3.0) * 0.25;
+      return combined * latFade;
+    }
+  `,
+
+  // ═══ Warped Wisps ═══
+  warped_wisps: `
+    float cloudMask(vec3 p) {
+      if (cloudDens < 0.001) return 0.0;
+      vec3 cp = rotY(p, time * 0.15);
+      vec3 sOff = vec3(time * 0.004, time * 0.003, time * 0.0025);
+
+      // Warped domain warp (identical to Warped)
+      float yAniso = mix(3.0, 1.0, cloudShp);
+      float warpStr = mix(0.35, 1.6, cloudShp);
+      vec3 warp = vec3(
+        fbm4(cp * 1.8 + sOff),
+        fbm4(cp * 1.8 + sOff + vec3(13.1)),
+        fbm4(cp * 1.8 + sOff + vec3(27.7))
+      ) - 0.5;
+
+      // Large-scale fbm passes from Warped
+      vec3 sp = vec3(cp.x + sOff.x*0.2, cp.y * yAniso, cp.z + sOff.y*0.2) + warp * warpStr;
+      float cA = fbm2(sp * 2.0);
+      vec3 sp2 = vec3(cp.x*0.7, cp.y*yAniso*0.55, cp.z*0.7) + warp * warpStr * 0.6;
+      float cB = fbm2(sp2 + sOff * 0.1);
+
+      // Ridged detail at the warped position
+      float yStr = mix(1.6, 1.0, cloudShp);
+      vec3 rp = vec3(sp.x, sp.y * yStr, sp.z);
+      float ridgeDetail = ridgedFbm(rp * 3.0 + sOff * 0.6);
+
+      // Combine: Warped body + ridged texture
+      float field = cA * 0.48 + cB * 0.22 + ridgeDetail * 0.30;
+
+      // Edge erosion — ridged noise carves into blob boundaries
+      float erosion = ridgedFbm(cp * 5.0 + sOff * 0.4 + vec3(42.0));
+      field = field * (0.7 + erosion * 0.3);
+
+      float latFade = 1.0 - pow(abs(cp.y), 3.0) * 0.25;
+      float thresh = mix(0.78, 0.18, cloudDens);
+      return smoothstep(thresh, thresh + 0.06, field) * latFade;
+    }
+  `,
+};
+
+const MAIN = `
+  void main() {
+    vec2 uv = vPos.xy;
+    float r2 = dot(uv, uv);
+    if (r2 > 1.0) { gl_FragColor = vec4(0.0); return; }
+
+    vec3 p = vec3(uv.x, uv.y, sqrt(1.0 - r2));
+    p = rotY(p, time * 0.1);
+
+    vec3 col = surfaceColor(p);
+
+    float cloud = cloudMask(p);
+    col = mix(col, c0, cloud * 0.92);
+
+    float rim = 1.0 - sqrt(1.0 - r2);
+    col *= 1.0 - rim * 0.55;
+
+    float gr = fract(sin(dot(gl_FragCoord.xy, vec2(12.9898,78.233))) * 43758.5453);
+    col += (gr - 0.5) * 0.015;
+
+    gl_FragColor = vec4(col, smoothstep(1.0, 0.995, sqrt(r2)));
+  }
+`;
+
+// ── WebGL ───────────────────────────────────────────────────────────────────
+
+function createShaderProgram(gl, fragSource) {
+  const vs = gl.createShader(gl.VERTEX_SHADER);
+  gl.shaderSource(vs, VERT);
+  gl.compileShader(vs);
+
+  const fs = gl.createShader(gl.FRAGMENT_SHADER);
+  gl.shaderSource(fs, fragSource);
+  gl.compileShader(fs);
+  if (!gl.getShaderParameter(fs, gl.COMPILE_STATUS)) {
+    console.error('Frag error:', gl.getShaderInfoLog(fs));
+    return null;
+  }
+
+  const prog = gl.createProgram();
+  gl.attachShader(prog, vs);
+  gl.attachShader(prog, fs);
+  gl.linkProgram(prog);
+  if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) {
+    console.error('Link error:', gl.getProgramInfoLog(prog));
+    return null;
+  }
+  return prog;
+}
+
+function initCanvas(canvas, approachId) {
+  const gl = canvas.getContext('webgl', { alpha: true, premultipliedAlpha: false });
+  if (!gl) return null;
+
+  const fragSrc = PREAMBLE + CLOUD_FUNCTIONS[approachId] + MAIN;
+  const prog = createShaderProgram(gl, fragSrc);
+  if (!prog) return null;
+
+  const buf = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
+    -1,-1,0, 1,-1,0, -1,1,0, 1,1,0
+  ]), gl.STATIC_DRAW);
+
+  const posLoc = gl.getAttribLocation(prog, 'position');
+  gl.enableVertexAttribArray(posLoc);
+  gl.vertexAttribPointer(posLoc, 3, gl.FLOAT, false, 0, 0);
+
+  gl.useProgram(prog);
+
+  return {
+    gl, prog,
+    uTime: gl.getUniformLocation(prog, 'time'),
+    uDens: gl.getUniformLocation(prog, 'cloudDens'),
+    uShp: gl.getUniformLocation(prog, 'cloudShp'),
+    uC0: gl.getUniformLocation(prog, 'c0'),
+    uC1: gl.getUniformLocation(prog, 'c1'),
+    uC2: gl.getUniformLocation(prog, 'c2'),
+    uC3: gl.getUniformLocation(prog, 'c3'),
+  };
+}
+
+// ── Build DOM ───────────────────────────────────────────────────────────────
+
+const grid = document.getElementById('grid');
+const renderers = [];
+
+APPROACHES.forEach(a => {
+  const cell = document.createElement('div');
+  cell.className = 'cell';
+
+  const label = document.createElement('div');
+  label.className = 'cell-label';
+  label.textContent = a.label;
+
+  const desc = document.createElement('div');
+  desc.className = 'cell-desc';
+  desc.textContent = a.desc;
+
+  const canvas = document.createElement('canvas');
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  canvas.width = SIZE * dpr;
+  canvas.height = SIZE * dpr;
+  canvas.style.width = SIZE + 'px';
+  canvas.style.height = SIZE + 'px';
+
+  const usecase = document.createElement('div');
+  usecase.className = 'cell-usecase';
+  usecase.innerHTML = a.usecase;
+
+  cell.appendChild(label);
+  cell.appendChild(desc);
+  cell.appendChild(canvas);
+  cell.appendChild(usecase);
+  grid.appendChild(cell);
+
+  const ctx = initCanvas(canvas, a.id);
+  if (ctx) {
+    ctx.canvas = canvas;
+    renderers.push(ctx);
+  }
+});
+
+// ── Controls ────────────────────────────────────────────────────────────────
+
+const densitySlider = document.getElementById('density');
+const shapeSlider = document.getElementById('shape');
+const speedSlider = document.getElementById('speed');
+
+densitySlider.oninput = () => {
+  density = parseFloat(densitySlider.value);
+  document.getElementById('density-val').textContent = density.toFixed(2);
+};
+
+shapeSlider.oninput = () => {
+  shape = parseFloat(shapeSlider.value);
+  document.getElementById('shape-val').textContent = shape.toFixed(2);
+};
+
+speedSlider.oninput = () => {
+  speedMul = parseFloat(speedSlider.value);
+  document.getElementById('speed-val').textContent = speedMul.toFixed(1) + '\u00d7';
+};
+
+document.querySelectorAll('.palette-btn').forEach(btn => {
+  btn.onclick = () => {
+    document.querySelectorAll('.palette-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    currentPalette = btn.dataset.palette;
+  };
+});
+
+document.querySelectorAll('.preset-btn').forEach(btn => {
+  btn.onclick = () => {
+    const d = parseFloat(btn.dataset.d);
+    const s = parseFloat(btn.dataset.s);
+    const p = btn.dataset.p;
+    density = d;
+    shape = s;
+    currentPalette = p;
+    densitySlider.value = d;
+    shapeSlider.value = s;
+    document.getElementById('density-val').textContent = d.toFixed(2);
+    document.getElementById('shape-val').textContent = s.toFixed(2);
+    document.querySelectorAll('.palette-btn').forEach(b => {
+      b.classList.toggle('active', b.dataset.palette === p);
+    });
+  };
+});
+
+// ── Render Loop ─────────────────────────────────────────────────────────────
+
+let startTime = performance.now();
+
+function render() {
+  const elapsed = (performance.now() - startTime) / 1000 * speedMul;
+  const pal = PALETTES[currentPalette];
+
+  renderers.forEach(r => {
+    const { gl, prog } = r;
+    gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+    gl.clearColor(0, 0, 0, 0);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+
+    gl.useProgram(prog);
+    gl.uniform1f(r.uTime, elapsed);
+    gl.uniform1f(r.uDens, density);
+    gl.uniform1f(r.uShp, shape);
+    gl.uniform3fv(r.uC0, pal.c0);
+    gl.uniform3fv(r.uC1, pal.c1);
+    gl.uniform3fv(r.uC2, pal.c2);
+    gl.uniform3fv(r.uC3, pal.c3);
+
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+  });
+
+  requestAnimationFrame(render);
+}
+
+render();
+</script>
+</body>
+</html>

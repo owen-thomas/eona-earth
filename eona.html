@@ -57,50 +57,126 @@
       padding: 24px 32px;
       display: flex;
       justify-content: space-between;
-      align-items: flex-end;
+      align-items: center;
       z-index: 100;
     }
     
+    /* === Type scale === */
+    /* xs: 10px, 1px letter-spacing, uppercase */
+    /* s:  12px */
+    /* l:  24px */
+
     .title {
       font-family: var(--font-mono);
-      font-size: 1em;
+      font-size: 12px;
       font-weight: 700;
       color: #ffffff;
       line-height: 1;
       text-box: trim-both cap alphabetic;
     }
-    
-    .controls { display: flex; gap: 24px; }
-    
-    .toggle {
-      font-family: var(--font-mono);
-      font-size: 11px;
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-      color: var(--grey-500);
+    .title img { display: block; }
+
+    .header-left { flex: 1; display: flex; align-items: center; }
+    .header-center { flex: 1; display: flex; justify-content: center; }
+    .header-right { flex: 1; display: flex; justify-content: flex-end; align-items: center; gap: 12px; }
+
+    /* === Layers control === */
+    .layers-control {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      position: relative;
+    }
+
+    .layers-btn {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
       background: none;
       border: none;
       cursor: pointer;
-      transition: color 0.3s ease;
-      padding: 4px 0;
-      position: relative;
+      padding: 0;
+      pointer-events: auto;
     }
-    
-    .toggle::after {
+
+    .layers-label {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      color: #aaaaaa;
+      line-height: 1;
+      text-box: trim-both cap alphabetic;
+    }
+    .layers-btn:hover .layers-label,
+    .layers-btn.active:hover .layers-label { color: #ffffff; }
+
+    /* Grid with fixed 24px columns — vlines and icons share exact column centres */
+    .layers-tree {
+      display: grid;
+      grid-template-columns: repeat(3, 24px);
+      column-gap: 40px;
+      position: absolute;
+      top: calc(100% + 8px);
+      left: 50%;
+      transform: translateX(-50%);
+    }
+
+    /* Horizontal connector — left/right 12px = centre of each outer column */
+    .layers-tree::before {
       content: '';
       position: absolute;
-      bottom: 0;
-      left: 0;
-      width: 100%;
       height: 1px;
-      background: var(--accent);
-      transform: scaleX(0);
-      transition: transform 0.3s ease;
+      background: #666666;
+      top: 12px;
+      left: 12px;
+      right: 12px;
+      pointer-events: none;
     }
-    
-    .toggle:hover { color: var(--white); }
-    .toggle.active { color: var(--accent); }
-    .toggle.active::after { transform: scaleX(1); }
+
+    .layer-col {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    /* Fixed-height connector section; vline sits at the bottom (align-bottom) */
+    .connector-section {
+      height: 24px;
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+    }
+
+    .vline { width: 1px; background: #666666; }
+    .vline-middle { height: 24px; }
+    .vline-outer  { height: 12px; }
+
+    .toggle {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 0;
+      margin-top: 8px;
+      pointer-events: auto;
+    }
+
+    .toggle-label {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      line-height: 1;
+      text-box: trim-both cap alphabetic;
+      color: #666666;
+      white-space: nowrap;
+    }
+    .toggle.active .toggle-label { color: var(--accent); }
     
     .clock-container {
       position: relative;
@@ -215,47 +291,72 @@
     
     .info-panel {
       position: fixed;
+      top: calc(50% + min(85vmin, 600px) / 2);
       bottom: 0;
       left: 0;
       right: 0;
-      padding: 24px 32px 32px;
+      padding: 0 32px 32px;
       display: flex;
-      justify-content: space-between;
-      align-items: flex-end;
+      flex-direction: column;
+      align-items: stretch;
       z-index: 100;
       pointer-events: none;
     }
 
-    .info-left {
-      flex: 1;
-    }
-
-    .info-left .era {
-      font-family: var(--font-mono);
-      font-size: 1em;
-      font-weight: 400;
-      color: #aaaaaa;
-      line-height: 1;
-      text-box: trim-both cap alphabetic;
-    }
-
     .info-center {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: flex-end;
       flex: 1;
-      align-self: flex-end;
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
 
-    .center-timestamp {
+    .info-bottom {
+      display: flex;
+      justify-content: space-between;
+      align-items: stretch;
+    }
+
+    .info-event-name {
+      flex: 1;
+      box-sizing: border-box;
+      display: flex;
+      justify-content: center;
+      align-items: flex-end;
+    }
+
+    #event-name-suffix {
       font-family: var(--font-mono);
-      font-size: 0.75em;
+      font-size: 12px;
       font-weight: 700;
       color: var(--accent);
       line-height: 1;
       text-box: trim-both cap alphabetic;
       text-align: center;
+    }
+
+    .info-left {
+      flex: 1;
+      display: flex;
+      align-items: flex-end;
+    }
+
+    .info-left .era {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      font-weight: 700;
+      color: #aaaaaa;
+      line-height: 1;
+      text-box: trim-both cap alphabetic;
+    }
+
+    .center-timestamp {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      font-weight: 700;
+      color: #aaaaaa;
+      line-height: 1;
+      text-box: trim-both cap alphabetic;
+      text-align: right;
     }
 
     .center-event-desc {
@@ -266,7 +367,6 @@
       color: #ffffff;
       line-height: 1.3;
       text-align: center;
-      margin-bottom: 32px;
       width: 300px;
     }
 
@@ -277,15 +377,15 @@
     .info-right {
       flex: 1;
       display: flex;
-      flex-direction: row;
+      flex-direction: column;
       align-items: flex-end;
       justify-content: flex-end;
-      gap: 16px;
     }
 
     #time-display {
       font-family: var(--font-mono);
-      font-size: 1em;
+      font-size: 21px;
+      font-weight: 400;
       color: #aaaaaa;
       line-height: 1;
       text-box: trim-both cap alphabetic;
@@ -313,22 +413,16 @@
     /* Hidden by default — shown only when the body has .scrubbing */
     .return-to-now {
       display: none;
-      align-items: center;
-      padding: 8px 12px;
-      background: var(--accent);
-      border: none;
-      color: #000000;
-      font-family: var(--font-mono);
-      font-size: 0.75em;
-      font-weight: 400;
-      border-radius: 999px;
       cursor: pointer;
-      z-index: 110;
       pointer-events: auto;
-      transform: translateY(12px);
+      margin-top: -20px;
+      margin-bottom: -20px;
+      margin-right: -20px;
     }
+    .return-to-now rect { transition: fill 0.2s ease; }
+    .return-to-now:hover rect { fill: #F78678; }
     body.scrubbing .return-to-now {
-      display: inline-flex;
+      display: inline-block;
     }
     body.scrubbing #time-display { color: #666666; }
 
@@ -346,18 +440,53 @@
     @media (max-width: 600px) {
       :root { --clock-size: 90vmin; }
       .header, .info-panel { padding: 16px 20px; }
-      .controls { gap: 16px; }
-      .toggle { font-size: 10px; }
+      .header-center { gap: 16px; }
+      #time-display { font-size: 18px; }
     }
   </style>
 </head>
 <body>
   <header class="header">
-    <div class="title"><img src="images/logo.svg" alt="Eona.Earth" width="70"></div>
-    <div class="controls">
-      <button class="toggle active" data-layer="earth">Earth</button>
-      <button class="toggle active" data-layer="infographic">Eons</button>
-      <button class="toggle active" data-layer="clock">Clock</button>
+    <div class="header-left">
+      <div class="title"><img src="images/logo.svg" alt="Eona.Earth" width="70"></div>
+    </div>
+    <div class="header-center">
+      <div class="layers-control">
+        <button class="layers-btn" id="layers-btn">
+          <img id="layers-icon" src="images/layers-default.svg" alt="">
+          <span class="layers-label">Layers</span>
+        </button>
+        <div class="layers-tree" id="layers-tree" style="display: none">
+          <div class="layer-col">
+            <div class="connector-section"><div class="vline vline-outer"></div></div>
+            <button class="toggle active" data-layer="earth">
+              <img class="toggle-icon" src="images/earth-active.svg" data-active="images/earth-active.svg" data-inactive="images/earth-inactive.svg" alt="">
+              <span class="toggle-label">Earth</span>
+            </button>
+          </div>
+          <div class="layer-col">
+            <div class="connector-section"><div class="vline vline-middle"></div></div>
+            <button class="toggle active" data-layer="infographic">
+              <img class="toggle-icon" src="images/eons-active.svg" data-active="images/eons-active.svg" data-inactive="images/eons-inactive.svg" alt="">
+              <span class="toggle-label">Eons</span>
+            </button>
+          </div>
+          <div class="layer-col">
+            <div class="connector-section"><div class="vline vline-outer"></div></div>
+            <button class="toggle active" data-layer="clock">
+              <img class="toggle-icon" src="images/clock-active.svg" data-active="images/clock-active.svg" data-inactive="images/clock-inactive.svg" alt="">
+              <span class="toggle-label">Clock</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="header-right">
+      <span id="time-display">00:00:00</span>
+      <svg id="return-to-now" class="return-to-now" role="button" tabindex="0" aria-label="Return to now" width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect width="40" height="40" rx="20" fill="#E34E2A"/>
+        <path d="M20 11.5C24.6944 11.5 28.5 15.3056 28.5 20C28.5 24.6944 24.6944 28.5 20 28.5C15.3056 28.5 11.5 24.6944 11.5 20H12.5C12.5 24.1421 15.8579 27.5 20 27.5C24.1421 27.5 27.5 24.1421 27.5 20C27.5 15.8579 24.1421 12.5 20 12.5C17.9616 12.5001 16.114 13.3128 14.7617 14.6328L14.4121 14.2754L14.0625 13.917C15.594 12.4219 17.6901 11.5001 20 11.5ZM13.5508 14.4668C13.7139 14.2769 13.8835 14.0927 14.0625 13.918L14.4121 14.2754L14.7607 14.6328C14.5865 14.8029 14.4207 14.9816 14.2637 15.168H17.0508V16.168H12.5508V11.668H13.5508V14.4668Z" fill="black"/>
+      </svg>
     </div>
   </header>
   
@@ -416,16 +545,19 @@
   </div>
   
   <div class="info-panel">
-    <div class="info-left">
-      <div class="era" id="era-display">Hadean Eon</div>
-    </div>
     <div class="info-center">
       <div class="center-event-desc" id="event-desc-center"></div>
-      <div class="center-timestamp"><span id="years-display">4.5 billion years ago</span><span id="event-name-suffix"></span></div>
     </div>
-    <div class="info-right">
-      <span id="time-display">00:00:00</span>
-      <button id="return-to-now" class="return-to-now" aria-label="Return to now">Return to now</button>
+    <div class="info-bottom">
+      <div class="info-left">
+        <div class="era" id="era-display">Hadean Eon</div>
+      </div>
+      <div class="info-event-name">
+        <span id="event-name-suffix"></span>
+      </div>
+      <div class="info-right">
+        <div class="center-timestamp"><span id="years-display">4.5 billion years ago</span></div>
+      </div>
     </div>
   </div>
   
@@ -1850,7 +1982,7 @@
     }
     
     // === TOOLTIP ===
-    function showTooltip(e, eventData) {
+    function showTooltip(e, eventData) { return;
       const tooltip = document.getElementById('tooltip');
       tooltip.querySelector('.tooltip-title').textContent = eventData.name;
       tooltip.querySelector('.tooltip-time').textContent = formatMa(eventData.time);
@@ -1873,7 +2005,7 @@
       if (!event) return;
       if (document.getElementById('infographic-layer').classList.contains('hidden')) return;
       _activeEventMa = event.time;
-      document.getElementById('event-name-suffix').textContent = ' \u2022 ' + event.name;
+      document.getElementById('event-name-suffix').textContent = event.name;
       const desc = document.getElementById('event-desc-center');
       desc.innerHTML = event.desc;
       desc.classList.add('visible');
@@ -1887,10 +2019,35 @@
     
     // === TOGGLES & EVENTS ===
     function setupToggles() {
+      // Layers button — toggles tree visibility + swaps icon on hover/click
+      const layersBtn  = document.getElementById('layers-btn');
+      const layersIcon = document.getElementById('layers-icon');
+      const layersTree = document.getElementById('layers-tree');
+      let layersOpen = false;
+
+      layersBtn.addEventListener('mouseenter', () => {
+        layersIcon.src = layersOpen ? 'images/active-hover.svg' : 'images/layers-hover.svg';
+      });
+      layersBtn.addEventListener('mouseleave', () => {
+        layersIcon.src = layersOpen ? 'images/layers-active.svg' : 'images/layers-default.svg';
+      });
+      layersBtn.addEventListener('click', () => {
+        layersOpen = !layersOpen;
+        layersBtn.classList.toggle('active', layersOpen);
+        layersTree.style.display = layersOpen ? '' : 'none';
+        layersIcon.src = layersOpen ? 'images/layers-active.svg' : 'images/layers-default.svg';
+      });
+
+      // Individual layer toggles — swap SVG icon + toggle layer visibility
       document.querySelectorAll('.toggle').forEach(toggle => {
         toggle.addEventListener('click', () => {
           const layer = toggle.dataset.layer;
           toggle.classList.toggle('active');
+          const isActive = toggle.classList.contains('active');
+
+          const icon = toggle.querySelector('.toggle-icon');
+          if (icon) icon.src = isActive ? icon.dataset.active : icon.dataset.inactive;
+
           const layerEl = document.getElementById(`${layer}-layer`);
           if (layerEl) layerEl.classList.toggle('hidden');
 

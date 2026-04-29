@@ -1,0 +1,787 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Surface Render Lab</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: #000;
+    color: #aaa;
+    font-family: 'Space Mono', monospace;
+    -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
+    min-height: 100vh;
+  }
+
+  .header {
+    padding: 32px 40px 16px;
+    display: flex;
+    align-items: baseline;
+    gap: 16px;
+    border-bottom: 1px solid #1a1a1a;
+  }
+
+  .header h1 {
+    font-size: 13px;
+    font-weight: 700;
+    color: #FF4D00;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .header span {
+    font-size: 11px;
+    color: #555;
+  }
+
+  .controls {
+    padding: 20px 40px;
+    border-bottom: 1px solid #1a1a1a;
+    display: flex;
+    gap: 28px;
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .control-group {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .control-group label {
+    font-size: 10px;
+    color: #555;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+
+  .control-group input[type="range"] {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 140px;
+    height: 2px;
+    background: #333;
+    outline: none;
+    border-radius: 1px;
+  }
+
+  .control-group input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: #FF4D00;
+    cursor: pointer;
+  }
+
+  .control-group .val {
+    font-size: 10px;
+    color: #777;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .palette-row {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+  }
+
+  .palette-btn {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    border: 2px solid transparent;
+    cursor: pointer;
+    transition: border-color 0.2s;
+  }
+
+  .palette-btn.active {
+    border-color: #FF4D00;
+  }
+
+  .section-label {
+    padding: 16px 40px 8px;
+    font-size: 10px;
+    font-weight: 700;
+    color: #444;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    border-bottom: 1px solid #111;
+  }
+
+  .section-label em {
+    font-style: normal;
+    color: #666;
+    font-weight: 400;
+    margin-left: 12px;
+  }
+
+  .grid {
+    display: grid;
+    gap: 0;
+    padding: 0;
+  }
+
+  .grid-3 {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .grid-2 {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  @media (max-width: 1200px) {
+    .grid-3 { grid-template-columns: repeat(2, 1fr); }
+    .grid-2 { grid-template-columns: 1fr; }
+  }
+
+  .cell {
+    border-right: 1px solid #1a1a1a;
+    border-bottom: 1px solid #1a1a1a;
+    padding: 24px 16px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .grid-3 .cell:nth-child(3n) { border-right: none; }
+  .grid-2 .cell:nth-child(2n) { border-right: none; }
+
+  .cell-label {
+    font-size: 11px;
+    font-weight: 700;
+    color: #FF4D00;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+    text-align: center;
+  }
+
+  .cell-desc {
+    font-size: 9.5px;
+    color: #555;
+    text-align: center;
+    line-height: 1.5;
+    margin-bottom: 16px;
+    max-width: 240px;
+    min-height: 48px;
+  }
+
+  .cell-usecase {
+    font-size: 9px;
+    color: #333;
+    text-align: center;
+    margin-top: 12px;
+    line-height: 1.4;
+    max-width: 220px;
+  }
+
+  .cell-usecase em {
+    color: #555;
+    font-style: normal;
+  }
+
+  canvas {
+    border-radius: 50%;
+    display: block;
+  }
+
+  .presets {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+
+  .preset-btn {
+    font-family: 'Space Mono', monospace;
+    font-size: 9px;
+    padding: 4px 8px;
+    background: #111;
+    color: #777;
+    border: 1px solid #333;
+    border-radius: 3px;
+    cursor: pointer;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    transition: all 0.2s;
+  }
+
+  .preset-btn:hover {
+    border-color: #FF4D00;
+    color: #FF4D00;
+  }
+
+  .mode-row {
+    display: flex;
+    gap: 4px;
+  }
+
+  .mode-btn {
+    font-family: 'Space Mono', monospace;
+    font-size: 9px;
+    padding: 4px 10px;
+    background: #111;
+    color: #555;
+    border: 1px solid #333;
+    border-radius: 3px;
+    cursor: pointer;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    transition: all 0.2s;
+  }
+
+  .mode-btn.active {
+    border-color: #FF4D00;
+    color: #FF4D00;
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>Surface Render Lab</h1>
+  <span>Five surface treatments for Eona &mdash; procedural &amp; data-driven</span>
+</div>
+
+<div class="controls">
+  <div class="control-group">
+    <label>Thresh 1 (c3/c2)</label>
+    <input type="range" id="thresh1" min="0.10" max="0.80" step="0.01" value="0.46">
+    <span class="val" id="thresh1-val">0.46</span>
+  </div>
+  <div class="control-group">
+    <label>Thresh 2 (c2/c1)</label>
+    <input type="range" id="thresh2" min="0.20" max="0.80" step="0.01" value="0.56">
+    <span class="val" id="thresh2-val">0.56</span>
+  </div>
+  <div class="control-group">
+    <label>Surface Intensity</label>
+    <input type="range" id="intensity" min="0.0" max="1.0" step="0.01" value="0.95">
+    <span class="val" id="intensity-val">0.95</span>
+  </div>
+  <div class="control-group">
+    <label>Speed</label>
+    <input type="range" id="speed" min="0" max="3" step="0.1" value="1.0">
+    <span class="val" id="speed-val">1.0&times;</span>
+  </div>
+  <div class="control-group">
+    <label>Palette</label>
+    <div class="palette-row">
+      <div class="palette-btn active" data-palette="modern" style="background: linear-gradient(135deg, #2F6F9E, #5FAE55)" title="Modern Earth"></div>
+      <div class="palette-btn" data-palette="hadean" style="background: linear-gradient(135deg, #8F220F, #E34E2A)" title="Molten Hadean"></div>
+      <div class="palette-btn" data-palette="archean" style="background: linear-gradient(135deg, #556B1A, #3F332E)" title="Hazy Archean"></div>
+      <div class="palette-btn" data-palette="hothouse" style="background: linear-gradient(135deg, #159F78, #7C6E60)" title="Hothouse"></div>
+      <div class="palette-btn" data-palette="snowball" style="background: linear-gradient(135deg, #A9B5E0, #D6E4F2)" title="Cryogenian"></div>
+      <div class="palette-btn" data-palette="boring" style="background: linear-gradient(135deg, #5E7744, #3A4F52)" title="Boring Billion"></div>
+    </div>
+  </div>
+  <div class="control-group">
+    <label>Presets</label>
+    <div class="presets">
+      <button class="preset-btn" data-t1="0.25" data-t2="0.40" data-i="0.95" data-p="hadean">Hadean 60/40</button>
+      <button class="preset-btn" data-t1="0.50" data-t2="0.65" data-i="0.90" data-p="archean">Archean 20/80</button>
+      <button class="preset-btn" data-t1="0.46" data-t2="0.56" data-i="0.85" data-p="boring">Boring Bn</button>
+      <button class="preset-btn" data-t1="0.46" data-t2="0.56" data-i="0.80" data-p="modern">Modern 44/56</button>
+      <button class="preset-btn" data-t1="0.50" data-t2="0.62" data-i="0.75" data-p="hothouse">Hothouse</button>
+      <button class="preset-btn" data-t1="0.46" data-t2="0.56" data-i="0.40" data-p="snowball">Snowball</button>
+    </div>
+  </div>
+</div>
+
+<div class="section-label">Procedural Surface<em>Pre-SDF eras &mdash; pure noise, no continent data. Maximum stylistic freedom.</em></div>
+<div class="grid grid-3" id="grid-procedural"></div>
+
+<div class="section-label">Data-Driven Surface<em>Post-snowball &mdash; SDF continents. How much flex do these have?</em></div>
+<div class="grid grid-2" id="grid-data"></div>
+
+<script>
+const SIZE = 260;
+
+// ── Approach Definitions ────────────────────────────────────────────────────
+
+const PROCEDURAL = [
+  {
+    id: 'screenprint',
+    label: 'Screenprint',
+    desc: 'Current shader. Two fbm layers, narrow smoothstep (0.04). Hard-edged registered ink zones. The Icinori riso aesthetic.',
+    usecase: '<em>Baseline.</em> All procedural eras currently use this.',
+  },
+  {
+    id: 'watercolor',
+    label: 'Watercolor',
+    desc: 'Wide smoothstep (0.18), domain-warped fbm. Colour zones bleed into each other. Soft, organic, imprecise.',
+    usecase: '<em>Dreamy / early eras.</em> Steam World haze, primordial soup feel.',
+  },
+  {
+    id: 'topographic',
+    label: 'Topographic',
+    desc: 'Ridged multifractal — bright creases where noise folds. Contour-line / elevation-map character. High-frequency detail.',
+    usecase: '<em>Complex terrain.</em> When you want surface to feel busy and layered.',
+  },
+];
+
+const DATADRIVEN = [
+  {
+    id: 'clean_data',
+    label: 'Clean Data',
+    desc: 'Near-flat land/sea with minimal noise modulation (±7%). Crisp coastline. Continents read as the dominant feature.',
+    usecase: '<em>Current SDF approach.</em> Maximum readability of continent shapes.',
+  },
+  {
+    id: 'riso_print',
+    label: 'Riso Print',
+    desc: 'Heavy grain and dithered edge. Visible dot texture on both land and sea. Printmaking aesthetic pushed to the maximum.',
+    usecase: '<em>Maximum Icinori.</em> Screenprint texture is the star, continents are secondary.',
+  },
+];
+
+// ── Palettes ────────────────────────────────────────────────────────────────
+
+const PALETTES = {
+  modern:   { c1: [0.37,0.68,0.33], c2: [0.18,0.43,0.62], c3: [0.09,0.27,0.39] },
+  hadean:   { c1: [0.89,0.31,0.16], c2: [0.56,0.13,0.06], c3: [0.24,0.05,0.02] },
+  archean:  { c1: [0.25,0.20,0.18], c2: [0.33,0.42,0.10], c3: [0.18,0.23,0.06] },
+  hothouse: { c1: [0.08,0.62,0.47], c2: [0.12,0.35,0.46], c3: [0.06,0.18,0.28] },
+  snowball: { c1: [0.84,0.89,0.95], c2: [0.66,0.71,0.88], c3: [0.18,0.27,0.44] },
+  boring:   { c1: [0.37,0.47,0.27], c2: [0.23,0.31,0.32], c3: [0.12,0.17,0.20] },
+};
+
+let currentPalette = 'modern';
+let thresh1 = 0.46;
+let thresh2 = 0.56;
+let intensity = 0.95;
+let speedMul = 1.0;
+
+// ── Shaders ─────────────────────────────────────────────────────────────────
+
+const VERT = `
+  attribute vec3 position;
+  varying vec3 vPos;
+  void main() {
+    vPos = position;
+    gl_Position = vec4(position.xy, 0.0, 1.0);
+  }
+`;
+
+const PREAMBLE = `
+  precision highp float;
+  varying vec3 vPos;
+  uniform float time;
+  uniform vec3 c1, c2, c3;
+  uniform float noiseThresh1, noiseThresh2;
+  uniform float surfIntens;
+  const float coastSoftness = 0.03;
+
+  float hash31(vec3 p) {
+    p = fract(p * vec3(443.8975, 397.2973, 491.1871));
+    p += dot(p, p.yzx + 19.19);
+    return fract((p.x + p.y) * p.z);
+  }
+
+  float noise3d(vec3 p) {
+    vec3 i = floor(p);
+    vec3 f = fract(p);
+    f = f * f * (3.0 - 2.0 * f);
+    return mix(
+      mix(mix(hash31(i), hash31(i + vec3(1,0,0)), f.x),
+          mix(hash31(i + vec3(0,1,0)), hash31(i + vec3(1,1,0)), f.x), f.y),
+      mix(mix(hash31(i + vec3(0,0,1)), hash31(i + vec3(1,0,1)), f.x),
+          mix(hash31(i + vec3(0,1,1)), hash31(i + vec3(1,1,1)), f.x), f.y),
+      f.z);
+  }
+
+  float fbm4(vec3 p) {
+    float v = 0.0, a = 0.5;
+    for (int i = 0; i < 4; i++) { v += a * noise3d(p); p *= 2.02; a *= 0.5; }
+    return v;
+  }
+
+  float fbm2(vec3 p) {
+    return noise3d(p) * 0.65 + noise3d(p * 2.1 + vec3(11.0)) * 0.35;
+  }
+
+  float ridgedNoise(vec3 p) {
+    return 1.0 - abs(noise3d(p) * 2.0 - 1.0);
+  }
+
+  float ridgedFbm(vec3 p) {
+    float v = 0.0, a = 0.5, prev = 1.0;
+    for (int i = 0; i < 5; i++) {
+      float n = ridgedNoise(p);
+      v += a * n * prev;
+      prev = n;
+      p *= 2.2;
+      a *= 0.45;
+    }
+    return v;
+  }
+
+  vec3 rotY(vec3 v, float a) {
+    float c = cos(a), s = sin(a);
+    return vec3(v.x*c + v.z*s, v.y, -v.x*s + v.z*c);
+  }
+
+  // Fake SDF — procedural "continent" blobs for data-driven demos.
+  // Returns 0..1: <0.5 = sea, >0.5 = land. Mimics a real SDF sample.
+  float fakeSdf(vec3 p) {
+    // Low-frequency noise gives continent-like blobs
+    float n = noise3d(p * 1.8 + vec3(42.0, 17.0, 31.0));
+    // Add slight mid-freq detail for coastline complexity
+    n += noise3d(p * 4.5 + vec3(13.0, 29.0, 7.0)) * 0.25;
+    n /= 1.25;
+    // Threshold so ~30% is land
+    return n;
+  }
+`;
+
+// ── Procedural Surface Functions ────────────────────────────────────────────
+
+const PROC_FUNCTIONS = {
+
+  // ═══ Screenprint (current) ═══
+  screenprint: `
+    vec3 surfaceColor(vec3 p) {
+      vec3 sOff = vec3(13.7, 7.3, 19.1);
+      float n1 = fbm4(p * 2.4 + sOff);
+      float n2 = fbm4(p * 4.6 + sOff * 1.3 + vec3(100.0));
+      float s1 = clamp(noiseThresh1, 0.04, 0.94);
+      float s2 = clamp(noiseThresh2, 0.04, 0.97);
+      float shape1 = smoothstep(s1 - 0.04, s1 + 0.04, n1);
+      float shape2 = smoothstep(s2 - 0.04, s2 + 0.04, n2);
+      float overlap = shape1 * shape2;
+
+      vec3 col = c3;
+      col = mix(col, c2, shape1);
+      col = mix(col, c1, shape2 * 0.85);
+      col *= mix(1.0, 0.86, overlap);
+      return mix(c2, col, surfIntens);
+    }
+  `,
+
+  // ═══ Watercolor ═══
+  watercolor: `
+    vec3 surfaceColor(vec3 p) {
+      vec3 sOff = vec3(13.7, 7.3, 19.1);
+      // Domain warp — fbm displaces the sample point
+      vec3 warp = vec3(
+        fbm4(p * 1.6 + sOff) - 0.5,
+        fbm4(p * 1.6 + sOff + vec3(50.0)) - 0.5,
+        fbm4(p * 1.6 + sOff + vec3(100.0)) - 0.5
+      );
+      vec3 wp = p + warp * 0.35;
+      float n1 = fbm4(wp * 2.4 + sOff);
+      float n2 = fbm4(wp * 3.2 + sOff * 1.3 + vec3(100.0));
+      float s1 = clamp(noiseThresh1, 0.04, 0.94);
+      float s2 = clamp(noiseThresh2, 0.04, 0.97);
+      // Wide smoothstep — soft bleeding edges
+      float shape1 = smoothstep(s1 - 0.18, s1 + 0.18, n1);
+      float shape2 = smoothstep(s2 - 0.18, s2 + 0.18, n2);
+
+      vec3 col = c3;
+      col = mix(col, c2, shape1);
+      col = mix(col, c1, shape2 * 0.80);
+      return mix(c2, col, surfIntens);
+    }
+  `,
+
+  // ═══ Topographic ═══
+  topographic: `
+    vec3 surfaceColor(vec3 p) {
+      vec3 sOff = vec3(13.7, 7.3, 19.1);
+      float n1 = ridgedFbm(p * 2.0 + sOff);
+      float n2 = ridgedFbm(p * 3.5 + sOff + vec3(50.0));
+      float s1 = clamp(noiseThresh1, 0.04, 0.94);
+      float s2 = clamp(noiseThresh2, 0.04, 0.97);
+      float shape1 = smoothstep(s1 - 0.04, s1 + 0.04, n1);
+      float shape2 = smoothstep(s2 - 0.04, s2 + 0.04, n2);
+
+      // Contour lines — periodic threshold on noise for topo-map feel
+      float contour = smoothstep(0.02, 0.0, abs(fract(n1 * 6.0) - 0.5));
+      contour += smoothstep(0.02, 0.0, abs(fract(n2 * 5.0) - 0.5)) * 0.5;
+
+      vec3 col = c3;
+      col = mix(col, c2, shape1);
+      col = mix(col, c1, shape2 * 0.85);
+      // Contour lines darken slightly
+      col *= 1.0 - contour * 0.12;
+      return mix(c2, col, surfIntens);
+    }
+  `,
+
+};
+
+// ── Data-Driven Surface Functions ───────────────────────────────────────────
+
+const DATA_FUNCTIONS = {
+
+  // ═══ Clean Data (current SDF approach) ═══
+  clean_data: `
+    vec3 surfaceColor(vec3 p) {
+      float sdf = fakeSdf(p);
+      vec3 sOff = vec3(13.7, 7.3, 19.1);
+      float n1 = fbm4(p * 2.4 + sOff);
+      // Minimal modulation — ±7%
+      float seaMod  = mix(1.0, 0.93, smoothstep(0.3, 0.6, n1));
+      float landMod = mix(1.0, 0.93, smoothstep(0.3, 0.6, n1));
+      vec3 seaCol  = c2 * seaMod;
+      vec3 landCol = c1 * landMod;
+      float landness = smoothstep(0.5 - coastSoftness, 0.5 + coastSoftness, sdf);
+      return mix(seaCol, landCol, landness);
+    }
+  `,
+
+  // ═══ Riso Print ═══
+  riso_print: `
+    vec3 surfaceColor(vec3 p) {
+      float sdf = fakeSdf(p);
+      vec3 sOff = vec3(13.7, 7.3, 19.1);
+      float n1 = fbm4(p * 2.4 + sOff);
+      float n2 = fbm4(p * 4.6 + sOff + vec3(100.0));
+
+      // Dithered edge — high-freq noise perturbs the SDF threshold
+      float dither = noise3d(p * 28.0 + sOff) * 0.08;
+      float landness = smoothstep(0.5 - coastSoftness - 0.02, 0.5 + coastSoftness + 0.02, sdf + dither);
+
+      // Heavy grain on both zones
+      float grain1 = smoothstep(0.3, 0.7, noise3d(p * 18.0 + vec3(200.0)));
+      float grain2 = smoothstep(0.25, 0.75, noise3d(p * 22.0 + vec3(300.0)));
+
+      // Land: c1 modulated by riso grain
+      vec3 landCol = c1 * mix(0.82, 1.0, grain1);
+      landCol = mix(landCol, c2, (1.0 - grain2) * 0.18);
+      // Sea: c2/c3 with grain
+      vec3 seaCol = mix(c3, c2, smoothstep(0.25, 0.65, n1));
+      seaCol *= mix(0.85, 1.0, grain2);
+
+      // Overlap ink — darker where grains coincide
+      float overlap = grain1 * grain2;
+
+      vec3 col = mix(seaCol, landCol, landness);
+      col *= mix(1.0, 0.88, overlap * 0.3);
+      return col;
+    }
+  `,
+};
+
+// ── Main shader (shared) ────────────────────────────────────────────────────
+
+const MAIN = `
+  void main() {
+    vec2 uv = vPos.xy;
+    float r2 = dot(uv, uv);
+    if (r2 > 1.0) { gl_FragColor = vec4(0.0); return; }
+
+    vec3 p = vec3(uv.x, uv.y, sqrt(1.0 - r2));
+    p = rotY(p, time * 0.1);
+
+    vec3 col = surfaceColor(p);
+
+    // Rim darkening
+    float rim = 1.0 - sqrt(1.0 - r2);
+    col *= 1.0 - rim * 0.55;
+
+    // Film grain
+    float gr = fract(sin(dot(gl_FragCoord.xy, vec2(12.9898,78.233))) * 43758.5453);
+    col += (gr - 0.5) * 0.015;
+
+    gl_FragColor = vec4(col, smoothstep(1.0, 0.995, sqrt(r2)));
+  }
+`;
+
+// ── WebGL Setup ─────────────────────────────────────────────────────────────
+
+function createShaderProgram(gl, fragSource) {
+  const vs = gl.createShader(gl.VERTEX_SHADER);
+  gl.shaderSource(vs, VERT);
+  gl.compileShader(vs);
+
+  const fs = gl.createShader(gl.FRAGMENT_SHADER);
+  gl.shaderSource(fs, fragSource);
+  gl.compileShader(fs);
+  if (!gl.getShaderParameter(fs, gl.COMPILE_STATUS)) {
+    console.error('Frag error:', gl.getShaderInfoLog(fs));
+    return null;
+  }
+
+  const prog = gl.createProgram();
+  gl.attachShader(prog, vs);
+  gl.attachShader(prog, fs);
+  gl.linkProgram(prog);
+  if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) {
+    console.error('Link error:', gl.getProgramInfoLog(prog));
+    return null;
+  }
+  return prog;
+}
+
+function initCanvas(canvas, funcCode) {
+  const gl = canvas.getContext('webgl', { alpha: true, premultipliedAlpha: false });
+  if (!gl) return null;
+
+  const fragSrc = PREAMBLE + funcCode + MAIN;
+  const prog = createShaderProgram(gl, fragSrc);
+  if (!prog) return null;
+
+  const buf = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
+    -1,-1,0, 1,-1,0, -1,1,0, 1,1,0
+  ]), gl.STATIC_DRAW);
+
+  const posLoc = gl.getAttribLocation(prog, 'position');
+  gl.enableVertexAttribArray(posLoc);
+  gl.vertexAttribPointer(posLoc, 3, gl.FLOAT, false, 0, 0);
+
+  gl.useProgram(prog);
+
+  return {
+    gl, prog,
+    uTime:   gl.getUniformLocation(prog, 'time'),
+    uC1:     gl.getUniformLocation(prog, 'c1'),
+    uC2:     gl.getUniformLocation(prog, 'c2'),
+    uC3:     gl.getUniformLocation(prog, 'c3'),
+    uT1:     gl.getUniformLocation(prog, 'noiseThresh1'),
+    uT2:     gl.getUniformLocation(prog, 'noiseThresh2'),
+    uSI:     gl.getUniformLocation(prog, 'surfIntens'),
+  };
+}
+
+// ── Build DOM ───────────────────────────────────────────────────────────────
+
+function buildGrid(containerId, approaches, funcMap) {
+  const grid = document.getElementById(containerId);
+  const renderers = [];
+
+  approaches.forEach(a => {
+    const cell = document.createElement('div');
+    cell.className = 'cell';
+
+    const label = document.createElement('div');
+    label.className = 'cell-label';
+    label.textContent = a.label;
+
+    const desc = document.createElement('div');
+    desc.className = 'cell-desc';
+    desc.textContent = a.desc;
+
+    const canvas = document.createElement('canvas');
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    canvas.width = SIZE * dpr;
+    canvas.height = SIZE * dpr;
+    canvas.style.width = SIZE + 'px';
+    canvas.style.height = SIZE + 'px';
+
+    const usecase = document.createElement('div');
+    usecase.className = 'cell-usecase';
+    usecase.innerHTML = a.usecase;
+
+    cell.appendChild(label);
+    cell.appendChild(desc);
+    cell.appendChild(canvas);
+    cell.appendChild(usecase);
+    grid.appendChild(cell);
+
+    const ctx = initCanvas(canvas, funcMap[a.id]);
+    if (ctx) {
+      ctx.canvas = canvas;
+      renderers.push(ctx);
+    }
+  });
+
+  return renderers;
+}
+
+const procRenderers = buildGrid('grid-procedural', PROCEDURAL, PROC_FUNCTIONS);
+const dataRenderers = buildGrid('grid-data', DATADRIVEN, DATA_FUNCTIONS);
+const allRenderers = [...procRenderers, ...dataRenderers];
+
+// ── Controls ────────────────────────────────────────────────────────────────
+
+document.getElementById('thresh1').oninput = function() {
+  thresh1 = parseFloat(this.value);
+  document.getElementById('thresh1-val').textContent = thresh1.toFixed(2);
+};
+document.getElementById('thresh2').oninput = function() {
+  thresh2 = parseFloat(this.value);
+  document.getElementById('thresh2-val').textContent = thresh2.toFixed(2);
+};
+document.getElementById('intensity').oninput = function() {
+  intensity = parseFloat(this.value);
+  document.getElementById('intensity-val').textContent = intensity.toFixed(2);
+};
+document.getElementById('speed').oninput = function() {
+  speedMul = parseFloat(this.value);
+  document.getElementById('speed-val').textContent = speedMul.toFixed(1) + '\u00d7';
+};
+
+document.querySelectorAll('.palette-btn').forEach(btn => {
+  btn.onclick = () => {
+    document.querySelectorAll('.palette-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    currentPalette = btn.dataset.palette;
+  };
+});
+
+document.querySelectorAll('.preset-btn').forEach(btn => {
+  btn.onclick = () => {
+    thresh1 = parseFloat(btn.dataset.t1);
+    thresh2 = parseFloat(btn.dataset.t2);
+    intensity = parseFloat(btn.dataset.i);
+    currentPalette = btn.dataset.p;
+
+    document.getElementById('thresh1').value = thresh1;
+    document.getElementById('thresh2').value = thresh2;
+    document.getElementById('intensity').value = intensity;
+    document.getElementById('thresh1-val').textContent = thresh1.toFixed(2);
+    document.getElementById('thresh2-val').textContent = thresh2.toFixed(2);
+    document.getElementById('intensity-val').textContent = intensity.toFixed(2);
+
+    document.querySelectorAll('.palette-btn').forEach(b => {
+      b.classList.toggle('active', b.dataset.palette === currentPalette);
+    });
+  };
+});
+
+// ── Render Loop ─────────────────────────────────────────────────────────────
+
+let startTime = performance.now();
+
+function render() {
+  const elapsed = (performance.now() - startTime) / 1000 * speedMul;
+  const pal = PALETTES[currentPalette];
+
+  allRenderers.forEach(r => {
+    const { gl, prog } = r;
+    gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+    gl.clearColor(0, 0, 0, 0);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+
+    gl.useProgram(prog);
+    gl.uniform1f(r.uTime, elapsed);
+    gl.uniform3fv(r.uC1, pal.c1);
+    gl.uniform3fv(r.uC2, pal.c2);
+    gl.uniform3fv(r.uC3, pal.c3);
+    gl.uniform1f(r.uT1, thresh1);
+    gl.uniform1f(r.uT2, thresh2);
+    gl.uniform1f(r.uSI, intensity);
+
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+  });
+
+  requestAnimationFrame(render);
+}
+
+render();
+</script>
+</body>
+</html>

@@ -1,0 +1,979 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Colour Lab</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&display=swap');
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#000;color:#aaa;font-family:'Space Mono',monospace;-webkit-font-smoothing:antialiased;min-height:100vh;display:flex;flex-direction:column}
+
+/* ── Header + Strip ─────────────────────────────── */
+.header{padding:20px 24px 12px;display:flex;align-items:baseline;gap:14px;border-bottom:1px solid #1a1a1a;flex-shrink:0}
+.header h1{font-size:13px;font-weight:700;color:#FF4D00;letter-spacing:.08em;text-transform:uppercase}
+.header span{font-size:11px;color:#555}
+.palette-strip{display:flex;gap:0;border-bottom:1px solid #1a1a1a;flex-shrink:0;overflow-x:auto}
+.strip-cell{flex:1;min-width:42px;display:flex;flex-direction:column;cursor:pointer;transition:opacity .15s;position:relative}
+.strip-cell:hover{opacity:.85}
+.strip-cell.active::after{content:'';position:absolute;bottom:0;left:0;right:0;height:2px;background:#FF4D00}
+.strip-band{height:12px}
+.strip-label{font-size:7px;color:#444;text-align:center;padding:2px 1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;background:#000}
+
+/* ── Main layout ────────────────────────────────── */
+.main{display:flex;flex:1;overflow:hidden}
+.phase-list{width:260px;min-width:260px;border-right:1px solid #1a1a1a;overflow-y:auto;flex-shrink:0}
+.phase-list::-webkit-scrollbar{width:4px}
+.phase-list::-webkit-scrollbar-track{background:transparent}
+.phase-list::-webkit-scrollbar-thumb{background:#222;border-radius:2px}
+.phase-item{padding:10px 16px;border-bottom:1px solid #111;cursor:pointer;transition:background .15s;display:flex;align-items:center;gap:10px}
+.phase-item:hover{background:#0a0a0a}
+.phase-item.active{background:#111}
+.phase-index{font-size:9px;color:#333;width:16px;text-align:right;flex-shrink:0;font-variant-numeric:tabular-nums}
+.phase-item.active .phase-index{color:#FF4D00}
+.phase-info{flex:1;min-width:0}
+.phase-name{font-size:10px;color:#777;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.phase-item.active .phase-name{color:#ccc}
+.phase-time{font-size:8px;color:#444;margin-top:1px}
+.phase-swatches{display:flex;gap:3px;flex-shrink:0}
+.phase-swatch{width:16px;height:16px;border-radius:50%;border:1.5px solid #222;cursor:pointer;transition:border-color .15s,transform .15s}
+.phase-swatch:hover{transform:scale(1.15)}
+.phase-swatch.editing{border-color:#FF4D00;transform:scale(1.2)}
+
+/* ── Editor ─────────────────────────────────────── */
+.editor{flex:1;display:flex;flex-direction:column;overflow-y:auto}
+.editor::-webkit-scrollbar{width:4px}
+.editor::-webkit-scrollbar-track{background:transparent}
+.editor::-webkit-scrollbar-thumb{background:#222;border-radius:2px}
+.editor-top{display:flex;gap:0;flex-shrink:0;min-height:0}
+
+/* Globe column */
+.preview-col{width:300px;min-width:300px;display:flex;flex-direction:column;align-items:center;padding:24px 20px;border-right:1px solid #1a1a1a;border-bottom:1px solid #1a1a1a}
+.preview-phase-name{font-size:10px;font-weight:700;color:#FF4D00;letter-spacing:.08em;text-transform:uppercase;margin-bottom:2px}
+.preview-phase-span{font-size:9px;color:#444;margin-bottom:16px}
+.globe-wrap{position:relative;width:240px;height:240px}
+.globe-wrap canvas{display:block;border-radius:50%;position:absolute;top:0;left:0}
+.haze-overlay{position:absolute;border-radius:50%;pointer-events:none}
+#light-haze{width:245px;height:245px;top:-2.5px;left:-2.5px}
+#dark-haze{width:245px;height:245px;top:-2.5px;left:-2.5px;mix-blend-mode:multiply}
+.preview-slots{display:flex;gap:8px;margin-top:16px}
+.preview-slot{display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer}
+.preview-slot-circle{width:28px;height:28px;border-radius:50%;border:2px solid #222;transition:border-color .15s,transform .15s}
+.preview-slot.active .preview-slot-circle{border-color:#FF4D00;transform:scale(1.1)}
+.preview-slot-label{font-size:8px;color:#555;text-transform:uppercase;letter-spacing:.04em}
+.preview-slot.active .preview-slot-label{color:#FF4D00}
+
+/* Picker column */
+.picker-col{width:280px;min-width:280px;padding:24px;border-right:1px solid #1a1a1a;border-bottom:1px solid #1a1a1a;display:flex;flex-direction:column;align-items:center;gap:14px}
+.picker-wheel-wrap{position:relative;width:200px;height:200px}
+#picker-wheel{width:200px;height:200px;border-radius:50%;cursor:crosshair}
+.picker-crosshair{position:absolute;width:12px;height:12px;border:2px solid #fff;border-radius:50%;pointer-events:none;transform:translate(-50%,-50%);box-shadow:0 0 0 1px rgba(0,0,0,.5),inset 0 0 0 1px rgba(0,0,0,.3)}
+.picker-row{display:flex;align-items:center;gap:10px;width:200px}
+.picker-lbl{font-size:8px;color:#555;text-transform:uppercase;letter-spacing:.04em;width:14px;flex-shrink:0}
+.picker-slider{-webkit-appearance:none;appearance:none;flex:1;height:6px;border-radius:3px;outline:none;cursor:pointer;background:#333}
+.picker-slider::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:12px;height:12px;border-radius:50%;background:#fff;border:2px solid #000;cursor:pointer}
+.picker-val{font-size:9px;color:#666;width:24px;text-align:right;font-variant-numeric:tabular-nums}
+.picker-hex-row{display:flex;align-items:center;gap:8px;width:200px}
+.picker-hex-input{font-family:'Space Mono',monospace;font-size:12px;color:#ccc;background:#111;border:1px solid #333;border-radius:3px;padding:4px 8px;width:90px;outline:none}
+.picker-hex-input:focus{border-color:#FF4D00}
+.picker-hex-swatch{width:24px;height:24px;border-radius:3px;border:1px solid #333}
+
+/* Haze pickers */
+.haze-section-label{font-size:8px;color:#444;text-transform:uppercase;letter-spacing:.06em;width:200px;margin-top:4px}
+.haze-pickers{display:flex;gap:12px;width:200px}
+.haze-pick{display:flex;flex-direction:column;align-items:center;gap:4px;flex:1;cursor:pointer}
+.haze-pick-circle{width:24px;height:24px;border-radius:50%;border:2px solid #222;transition:border-color .15s}
+.haze-pick.active .haze-pick-circle{border-color:#FF4D00}
+.haze-pick-label{font-size:7px;color:#555;text-transform:uppercase;letter-spacing:.04em}
+.haze-pick.active .haze-pick-label{color:#FF4D00}
+
+/* Controls column */
+.controls-col{flex:1;padding:20px 24px;border-bottom:1px solid #1a1a1a;overflow-y:auto;min-width:260px}
+.controls-col::-webkit-scrollbar{width:4px}
+.controls-col::-webkit-scrollbar-track{background:transparent}
+.controls-col::-webkit-scrollbar-thumb{background:#222;border-radius:2px}
+.ctrl-section{margin-bottom:20px}
+.ctrl-section-head{font-size:9px;font-weight:700;color:#555;letter-spacing:.08em;text-transform:uppercase;margin-bottom:8px;display:flex;align-items:center;gap:8px}
+.ctrl-section-head::after{content:'';flex:1;height:1px;background:#1a1a1a}
+.approach-tabs{display:flex;gap:3px;margin-bottom:10px;flex-wrap:wrap}
+.approach-tab{font-family:'Space Mono',monospace;font-size:8px;padding:4px 8px;background:#0a0a0a;color:#555;border:1px solid #222;border-radius:3px;cursor:pointer;text-transform:uppercase;letter-spacing:.04em;transition:all .15s;white-space:nowrap}
+.approach-tab:hover{border-color:#555;color:#888}
+.approach-tab.active{border-color:#FF4D00;color:#FF4D00}
+.approach-tab.disabled{opacity:.3;pointer-events:none}
+.ctrl-row{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.ctrl-label{font-size:8px;color:#555;text-transform:uppercase;letter-spacing:.04em;width:80px;flex-shrink:0}
+.ctrl-slider{-webkit-appearance:none;appearance:none;flex:1;height:2px;background:#333;outline:none;border-radius:1px;cursor:pointer}
+.ctrl-slider::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:10px;height:10px;border-radius:50%;background:#FF4D00;cursor:pointer}
+.ctrl-val{font-size:9px;color:#666;width:36px;text-align:right;font-variant-numeric:tabular-nums;flex-shrink:0}
+
+/* ── Global bar ─────────────────────────────────── */
+.global-bar{padding:14px 24px;border-top:1px solid #1a1a1a;display:flex;align-items:center;gap:16px;flex-shrink:0;flex-wrap:wrap}
+.toggle-group{display:flex;align-items:center;gap:6px}
+.toggle-label{font-size:8px;color:#555;text-transform:uppercase;letter-spacing:.04em}
+.toggle-cb{appearance:none;-webkit-appearance:none;width:14px;height:14px;border:1.5px solid #444;border-radius:3px;cursor:pointer;position:relative;vertical-align:middle;transition:all .15s}
+.toggle-cb:checked{background:#FF4D00;border-color:#FF4D00}
+.toggle-cb:checked::after{content:'\2713';position:absolute;top:-1px;left:1px;font-size:10px;color:#000}
+.global-sep{width:1px;height:20px;background:#1a1a1a}
+.g-btn{font-family:'Space Mono',monospace;font-size:9px;padding:5px 12px;background:#111;color:#777;border:1px solid #333;border-radius:3px;cursor:pointer;text-transform:uppercase;letter-spacing:.04em;transition:all .15s}
+.g-btn:hover{border-color:#FF4D00;color:#FF4D00}
+.g-btn.copied{border-color:#5FAE55;color:#5FAE55}
+.g-btn:disabled{opacity:.3;pointer-events:none}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>Colour Lab</h1>
+  <span>Phase palette + shader editor &mdash; 15 states</span>
+</div>
+<div class="palette-strip" id="palette-strip"></div>
+
+<div class="main">
+  <div class="phase-list" id="phase-list"></div>
+
+  <div class="editor">
+    <div class="editor-top">
+      <div class="preview-col">
+        <div class="preview-phase-name" id="preview-name">&mdash;</div>
+        <div class="preview-phase-span" id="preview-span">&mdash;</div>
+        <div class="globe-wrap" id="globe-wrap">
+          <canvas id="globe-canvas"></canvas>
+          <div class="haze-overlay" id="light-haze"></div>
+          <div class="haze-overlay" id="dark-haze"></div>
+        </div>
+        <div class="preview-slots" id="preview-slots"></div>
+      </div>
+
+      <div class="picker-col">
+        <div class="picker-wheel-wrap">
+          <canvas id="picker-wheel" width="400" height="400"></canvas>
+          <div class="picker-crosshair" id="picker-crosshair"></div>
+        </div>
+        <div class="picker-row">
+          <span class="picker-lbl">L</span>
+          <input type="range" class="picker-slider" id="lightness-slider" min="0" max="100" value="50">
+          <span class="picker-val" id="lightness-val">50</span>
+        </div>
+        <div class="picker-hex-row">
+          <span class="picker-lbl">#</span>
+          <input type="text" class="picker-hex-input" id="hex-input" maxlength="7" value="#000000">
+          <div class="picker-hex-swatch" id="hex-swatch"></div>
+        </div>
+        <div class="haze-section-label">Haze colours</div>
+        <div class="haze-pickers">
+          <div class="haze-pick" id="pick-light-haze"><div class="haze-pick-circle" id="lh-circle"></div><div class="haze-pick-label">Light</div></div>
+          <div class="haze-pick" id="pick-dark-haze"><div class="haze-pick-circle" id="dh-circle"></div><div class="haze-pick-label">Dark</div></div>
+        </div>
+        <div class="picker-row" style="margin-top:2px">
+          <span class="picker-lbl" style="width:42px">L.Haze</span>
+          <input type="range" class="picker-slider" id="lh-opacity-slider" min="0" max="100" value="50" style="flex:1">
+          <span class="picker-val" id="lh-opacity-val">50</span>
+        </div>
+        <div class="picker-row">
+          <span class="picker-lbl" style="width:42px">D.Haze</span>
+          <input type="range" class="picker-slider" id="dh-opacity-slider" min="0" max="100" value="50" style="flex:1">
+          <span class="picker-val" id="dh-opacity-val">50</span>
+        </div>
+      </div>
+
+      <div class="controls-col" id="controls-col">
+        <div class="ctrl-section">
+          <div class="ctrl-section-head">Surface</div>
+          <div class="approach-tabs" id="surface-tabs"></div>
+          <div class="ctrl-row"><span class="ctrl-label">Thresh 1</span><input type="range" class="ctrl-slider" id="sl-t1" min="0.10" max="0.80" step="0.01" value="0.50"><span class="ctrl-val" id="val-t1">0.50</span></div>
+          <div class="ctrl-row"><span class="ctrl-label">Thresh 2</span><input type="range" class="ctrl-slider" id="sl-t2" min="0.20" max="0.80" step="0.01" value="0.56"><span class="ctrl-val" id="val-t2">0.56</span></div>
+          <div class="ctrl-row"><span class="ctrl-label">Intensity</span><input type="range" class="ctrl-slider" id="sl-si" min="0.0" max="1.0" step="0.01" value="0.85"><span class="ctrl-val" id="val-si">0.85</span></div>
+          <div class="ctrl-row"><span class="ctrl-label">Speed</span><input type="range" class="ctrl-slider" id="sl-ss" min="0" max="5" step="0.1" value="1.0"><span class="ctrl-val" id="val-ss">1.0&times;</span></div>
+        </div>
+        <div class="ctrl-section">
+          <div class="ctrl-section-head">Clouds</div>
+          <div class="approach-tabs" id="cloud-tabs"></div>
+          <div class="ctrl-row"><span class="ctrl-label">Density</span><input type="range" class="ctrl-slider" id="sl-cd" min="0.00" max="0.80" step="0.01" value="0.26"><span class="ctrl-val" id="val-cd">0.26</span></div>
+          <div class="ctrl-row"><span class="ctrl-label">Shape</span><input type="range" class="ctrl-slider" id="sl-cs" min="0" max="1" step="0.05" value="0.50"><span class="ctrl-val" id="val-cs">0.50</span></div>
+          <div class="ctrl-row"><span class="ctrl-label">Speed</span><input type="range" class="ctrl-slider" id="sl-csp" min="0" max="5" step="0.1" value="1.0"><span class="ctrl-val" id="val-csp">1.0&times;</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="global-bar">
+      <div class="toggle-group"><input type="checkbox" class="toggle-cb" id="tog-clouds" checked><label class="toggle-label" for="tog-clouds">Clouds</label></div>
+      <div class="toggle-group"><input type="checkbox" class="toggle-cb" id="tog-lh" checked><label class="toggle-label" for="tog-lh">Light haze</label></div>
+      <div class="toggle-group"><input type="checkbox" class="toggle-cb" id="tog-dh" checked><label class="toggle-label" for="tog-dh">Dark haze</label></div>
+      <div class="global-sep"></div>
+      <div class="toggle-group">
+        <label class="toggle-label">Grain</label>
+        <input type="range" class="ctrl-slider" id="sl-grain" min="0" max="0.06" step="0.002" value="0.015" style="width:80px">
+        <span class="ctrl-val" id="val-grain" style="width:36px">0.015</span>
+      </div>
+      <div class="global-sep"></div>
+      <button class="g-btn" id="btn-undo" disabled>Undo</button>
+      <button class="g-btn" id="btn-reset">Reset phase</button>
+      <div class="global-sep"></div>
+      <button class="g-btn" id="btn-export">Copy palette JS</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════════════════
+// DATA
+// ═══════════════════════════════════════════════════════════════════════════
+
+const STATES = [
+  { name:'Molten Hadean (early)', span:[4540,4420],
+    palette:['#FABF8A','#E34E2A','#8F220F','#3C0E04','#1E0F01'],
+    noiseThresh1:.50,noiseThresh2:.30,surfaceIntensity:.95,
+    cloudDensity:0,cloudShape:0,seed:1.3,useLandSea:0,
+    hazeColor:'#6A2A1A',hazeOpacity:.50,darkHazeColor:'#2A0F08',darkHazeOpacity:.40,
+    surfaceApproach:'screenprint',cloudApproach:'warped_wisps'},
+  { name:'Molten Hadean (late)', span:[4420,4300],
+    palette:['#FABF8A','#3C0E04','#8F220F','#E34E2A','#1E0F01'],
+    noiseThresh1:.50,noiseThresh2:.30,surfaceIntensity:.95,
+    cloudDensity:0,cloudShape:0,seed:1.3,useLandSea:0,
+    hazeColor:'#6A2A1A',hazeOpacity:.40,darkHazeColor:'#2A0F08',darkHazeOpacity:.40,
+    surfaceApproach:'screenprint',cloudApproach:'warped_wisps'},
+  { name:'Steam World', span:[4300,4000],
+    palette:['#D9C6B8','#3C0E04','#2E473D','#1C2B25','#0D1611'],
+    noiseThresh1:.50,noiseThresh2:.65,surfaceIntensity:.65,
+    cloudDensity:.80,cloudShape:0,seed:2.7,useLandSea:0,
+    hazeColor:'#E6E8EA',hazeOpacity:.90,darkHazeColor:'#B0B4B8',darkHazeOpacity:1.0,
+    surfaceApproach:'screenprint',cloudApproach:'warped_wisps'},
+  { name:'Hazy Archean (early)', span:[4000,3200],
+    palette:['#F8D9AA','#3F332E','#556B1A','#2F3A0F','#060A0B'],
+    noiseThresh1:.50,noiseThresh2:.65,surfaceIntensity:.70,
+    cloudDensity:.38,cloudShape:0,seed:3.1,useLandSea:0,
+    hazeColor:'#EBC39A',hazeOpacity:.65,darkHazeColor:'#D9A679',darkHazeOpacity:.75,
+    surfaceApproach:'screenprint',cloudApproach:'warped_wisps'},
+  { name:'Hazy Archean (late)', span:[3200,2500],
+    palette:['#F8D9AA','#735454','#389F79','#2A795C','#060E09'],
+    noiseThresh1:.50,noiseThresh2:.65,surfaceIntensity:.68,
+    cloudDensity:.30,cloudShape:0,seed:3.8,useLandSea:0,
+    hazeColor:'#EBC39A',hazeOpacity:.60,darkHazeColor:'#D9A679',darkHazeOpacity:.70,
+    surfaceApproach:'screenprint',cloudApproach:'warped_wisps'},
+  { name:'Great Oxidation (early)', span:[2500,2400],
+    palette:['#ECEEF0','#A7572C','#4E5F2A','#2F3F1A','#131A09'],
+    noiseThresh1:.50,noiseThresh2:.65,surfaceIntensity:.75,
+    cloudDensity:.22,cloudShape:0,seed:4.5,useLandSea:0,
+    hazeColor:'#CFE2F1',hazeOpacity:.40,darkHazeColor:'#6F8FA8',darkHazeOpacity:.50,
+    surfaceApproach:'screenprint',cloudApproach:'warped_wisps'},
+  { name:'Great Oxidation (late)', span:[2400,2300],
+    palette:['#E3EEF7','#A7572C','#2F6F9E','#174663','#091420'],
+    noiseThresh1:.50,noiseThresh2:.65,surfaceIntensity:.75,
+    cloudDensity:.20,cloudShape:0,seed:4.7,useLandSea:0,
+    hazeColor:'#CFE2F1',hazeOpacity:.30,darkHazeColor:'#6F8FA8',darkHazeOpacity:.40,
+    surfaceApproach:'screenprint',cloudApproach:'warped_wisps'},
+  { name:'Huronian Snowball', span:[2300,2100],
+    palette:['#EAF3FB','#DCE9F5','#C7D6E3','#D8D2D6','#0E141B'],
+    noiseThresh1:.50,noiseThresh2:.65,surfaceIntensity:.32,
+    cloudDensity:.62,cloudShape:0,seed:5.1,useLandSea:0,
+    hazeColor:'#F2F3F5',hazeOpacity:.50,darkHazeColor:'#AEBFCC',darkHazeOpacity:.60,
+    surfaceApproach:'screenprint',cloudApproach:'warped_wisps'},
+  { name:'Boring Billion (early)', span:[2100,1500],
+    palette:['#F5DFA3','#4A4A4A','#3A584C','#2E473D','#060D0A'],
+    noiseThresh1:.50,noiseThresh2:.62,surfaceIntensity:.62,
+    cloudDensity:.22,cloudShape:0,seed:6.0,useLandSea:0,
+    hazeColor:'#F5DFA3',hazeOpacity:.35,darkHazeColor:'#8A6B3A',darkHazeOpacity:.45,
+    surfaceApproach:'screenprint',cloudApproach:'warped_wisps'},
+  { name:'Boring Billion (mid)', span:[1500,1000],
+    palette:['#E3EEF7','#6C523F','#3F8B8F','#5F9EA0','#070D11'],
+    noiseThresh1:.50,noiseThresh2:.62,surfaceIntensity:.60,
+    cloudDensity:.18,cloudShape:0,seed:6.4,useLandSea:0,
+    hazeColor:'#CFE2F1',hazeOpacity:.25,darkHazeColor:'#6F8FA8',darkHazeOpacity:.35,
+    surfaceApproach:'screenprint',cloudApproach:'warped_wisps'},
+  { name:'Boring Billion (late)', span:[1000,720],
+    palette:['#E0C7B8','#8C6B5E','#385955','#1F2A33','#06091E'],
+    noiseThresh1:.50,noiseThresh2:.62,surfaceIntensity:.58,
+    cloudDensity:.24,cloudShape:0,seed:6.8,useLandSea:0,
+    hazeColor:'#E0C7B8',hazeOpacity:.35,darkHazeColor:'#7A5A4A',darkHazeOpacity:.45,
+    surfaceApproach:'screenprint',cloudApproach:'warped_wisps'},
+  { name:'Cryogenian Snowball', span:[720,635],
+    palette:['#F2F3F5','#D6E4F2','#A9B5E0','#2F456F','#0A1428'],
+    noiseThresh1:.50,noiseThresh2:.65,surfaceIntensity:.28,
+    cloudDensity:.68,cloudShape:0,seed:7.3,useLandSea:.35,
+    hazeColor:'#F2F3F5',hazeOpacity:.55,darkHazeColor:'#AEBFCC',darkHazeOpacity:.65,
+    surfaceApproach:'screenprint',cloudApproach:'warped_wisps'},
+  { name:'Hothouse World', span:[635,400],
+    palette:['#E2C6A8','#7C6E60','#159F78','#1E5A75','#032832'],
+    noiseThresh1:.46,noiseThresh2:.56,surfaceIntensity:.78,
+    cloudDensity:.42,cloudShape:.40,seed:8.4,useLandSea:1,
+    hazeColor:'#E2C6A8',hazeOpacity:.45,darkHazeColor:'#8C5A2B',darkHazeOpacity:.55,
+    surfaceApproach:'screenprint',cloudApproach:'warped_wisps'},
+  { name:'Green World', span:[400,66],
+    palette:['#CFEAF7','#1E7A3D','#13906B','#0D664B','#011F15'],
+    noiseThresh1:.46,noiseThresh2:.56,surfaceIntensity:.88,
+    cloudDensity:.26,cloudShape:.65,seed:9.1,useLandSea:1,
+    hazeColor:'#CFEAF7',hazeOpacity:.30,darkHazeColor:'#5F8FA8',darkHazeOpacity:.40,
+    surfaceApproach:'screenprint',cloudApproach:'warped_wisps'},
+  { name:'Modern Earth', span:[66,0],
+    palette:['#F4F8FB','#5FAE55','#2F6F9E','#174663','#041528'],
+    noiseThresh1:.46,noiseThresh2:.56,surfaceIntensity:.82,
+    cloudDensity:.26,cloudShape:1,seed:10.5,useLandSea:1,
+    hazeColor:'#F4F8FB',hazeOpacity:.08,darkHazeColor:'#A8C0D6',darkHazeOpacity:.30,
+    surfaceApproach:'screenprint',cloudApproach:'warped_wisps'},
+];
+
+const ORIGINALS = JSON.parse(JSON.stringify(STATES));
+const undoStacks = STATES.map(() => []);
+
+const SLOT_LABELS = ['c0','c1','c2','c3'];
+const SURFACE_APPROACHES = [
+  {id:'screenprint',label:'Screenprint'},
+  {id:'watercolor',label:'Watercolour'},
+  {id:'topographic',label:'Topographic'},
+];
+const CLOUD_APPROACHES = [
+  {id:'warped',label:'Warped'},
+  {id:'ridged_wisps',label:'Ridged Wisps'},
+  {id:'warped_layers',label:'Warped Layers'},
+  {id:'warped_wisps',label:'Warped Wisps'},
+];
+
+let activePhase = 0, activeSlot = 1, activeTarget = 'c1';
+let showClouds = true, showLightHaze = true, showDarkHaze = true, grainAmount = 0.015;
+let surfaceSpeed = 1.0, cloudSpeed = 1.0;
+
+// ═══════════════════════════════════════════════════════════════════════════
+// COLOUR UTILS
+// ═══════════════════════════════════════════════════════════════════════════
+function hexToRgb01(hex){const h=hex.replace('#','');return[parseInt(h.slice(0,2),16)/255,parseInt(h.slice(2,4),16)/255,parseInt(h.slice(4,6),16)/255]}
+function rgb01ToHex(r,g,b){const f=v=>Math.round(Math.max(0,Math.min(1,v))*255).toString(16).padStart(2,'0');return'#'+f(r)+f(g)+f(b)}
+function hslToRgb(h,s,l){h/=360;s/=100;l/=100;let r,g,b;if(s===0){r=g=b=l}else{const q=l<.5?l*(1+s):l+s-l*s,p=2*l-q;const hr=(p2,q2,t)=>{if(t<0)t+=1;if(t>1)t-=1;if(t<1/6)return p2+(q2-p2)*6*t;if(t<1/2)return q2;if(t<2/3)return p2+(q2-p2)*(2/3-t)*6;return p2};r=hr(p,q,h+1/3);g=hr(p,q,h);b=hr(p,q,h-1/3)}return[r,g,b]}
+function rgbToHsl(r,g,b){const mx=Math.max(r,g,b),mn=Math.min(r,g,b);let h,s,l=(mx+mn)/2;if(mx===mn){h=s=0}else{const d=mx-mn;s=l>.5?d/(2-mx-mn):d/(mx+mn);switch(mx){case r:h=((g-b)/d+(g<b?6:0))/6;break;case g:h=((b-r)/d+2)/6;break;case b:h=((r-g)/d+4)/6;break}}return[h*360,s*100,l*100]}
+function hexToHsl(hex){return rgbToHsl(...hexToRgb01(hex))}
+function hslToHex(h,s,l){return rgb01ToHex(...hslToRgb(h,s,l))}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// UNDO
+// ═══════════════════════════════════════════════════════════════════════════
+let _undoPushedThisDrag = false;
+function pushUndo(){
+  if(_undoPushedThisDrag) return;
+  const snap = JSON.parse(JSON.stringify(STATES[activePhase]));
+  undoStacks[activePhase].push(snap);
+  if(undoStacks[activePhase].length>50) undoStacks[activePhase].shift();
+  document.getElementById('btn-undo').disabled = false;
+}
+function popUndo(){
+  const stack = undoStacks[activePhase];
+  if(!stack.length) return;
+  const snap = stack.pop();
+  Object.assign(STATES[activePhase], snap);
+  STATES[activePhase].palette = snap.palette; // ensure array replaced
+  document.getElementById('btn-undo').disabled = !stack.length;
+  fullRefresh();
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SHADERS
+// ═══════════════════════════════════════════════════════════════════════════
+
+const VERT = `attribute vec3 position;varying vec3 vPos;void main(){vPos=position;gl_Position=vec4(position.xy,0.0,1.0);}`;
+
+const PREAMBLE = `
+precision highp float;
+varying vec3 vPos;
+uniform float time, rotation, cloudRot, seed;
+uniform vec3 c0, c1, c2, c3;
+uniform float noiseThresh1, noiseThresh2, surfIntens;
+uniform float cloudDens, cloudShp;
+uniform float showCloudsU, grainAmt;
+
+float hash31(vec3 p){p=fract(p*vec3(443.8975,397.2973,491.1871));p+=dot(p,p.yzx+19.19);return fract((p.x+p.y)*p.z);}
+float noise3d(vec3 p){vec3 i=floor(p);vec3 f=fract(p);f=f*f*(3.0-2.0*f);return mix(mix(mix(hash31(i),hash31(i+vec3(1,0,0)),f.x),mix(hash31(i+vec3(0,1,0)),hash31(i+vec3(1,1,0)),f.x),f.y),mix(mix(hash31(i+vec3(0,0,1)),hash31(i+vec3(1,0,1)),f.x),mix(hash31(i+vec3(0,1,1)),hash31(i+vec3(1,1,1)),f.x),f.y),f.z);}
+float fbm4(vec3 p){float v=0.0,a=0.5;for(int i=0;i<4;i++){v+=a*noise3d(p);p*=2.02;a*=0.5;}return v;}
+float fbm2(vec3 p){return noise3d(p)*0.65+noise3d(p*2.1+vec3(11.0))*0.35;}
+float ridgedNoise(vec3 p){return 1.0-abs(noise3d(p)*2.0-1.0);}
+float ridgedFbm(vec3 p){float v=0.0,a=0.5,prev=1.0;for(int i=0;i<5;i++){float n=ridgedNoise(p);v+=a*n*prev;prev=n;p*=2.2;a*=0.45;}return v;}
+vec3 rotY(vec3 v,float a){float c=cos(a),s=sin(a);return vec3(v.x*c+v.z*s,v.y,-v.x*s+v.z*c);}
+`;
+
+const SURF_FN = {
+screenprint: `
+vec3 surfaceColor(vec3 p){
+  vec3 sOff=vec3(seed*13.7,seed*7.3,seed*19.1);
+  float n1=fbm4(p*2.4+sOff);float n2=fbm4(p*4.6+sOff*1.3+vec3(100.0));
+  float s1=clamp(noiseThresh1,0.04,0.94);float s2=clamp(noiseThresh2,0.04,0.97);
+  float shape1=smoothstep(s1-0.04,s1+0.04,n1);float shape2=smoothstep(s2-0.04,s2+0.04,n2);
+  float overlap=shape1*shape2;
+  vec3 col=c3;col=mix(col,c2,shape1);col=mix(col,c1,shape2*0.85);col*=mix(1.0,0.86,overlap);
+  return mix(c2,col,surfIntens);}`,
+watercolor: `
+vec3 surfaceColor(vec3 p){
+  vec3 sOff=vec3(seed*13.7,seed*7.3,seed*19.1);
+  vec3 warp=vec3(fbm4(p*1.6+sOff)-0.5,fbm4(p*1.6+sOff+vec3(50.0))-0.5,fbm4(p*1.6+sOff+vec3(100.0))-0.5);
+  vec3 wp=p+warp*0.35;
+  float n1=fbm4(wp*2.4+sOff);float n2=fbm4(wp*3.2+sOff*1.3+vec3(100.0));
+  float s1=clamp(noiseThresh1,0.04,0.94);float s2=clamp(noiseThresh2,0.04,0.97);
+  float shape1=smoothstep(s1-0.18,s1+0.18,n1);float shape2=smoothstep(s2-0.18,s2+0.18,n2);
+  vec3 col=c3;col=mix(col,c2,shape1);col=mix(col,c1,shape2*0.80);
+  return mix(c2,col,surfIntens);}`,
+topographic: `
+vec3 surfaceColor(vec3 p){
+  vec3 sOff=vec3(seed*13.7,seed*7.3,seed*19.1);
+  float n1=ridgedFbm(p*2.0+sOff);float n2=ridgedFbm(p*3.5+sOff+vec3(50.0));
+  float s1=clamp(noiseThresh1,0.04,0.94);float s2=clamp(noiseThresh2,0.04,0.97);
+  float shape1=smoothstep(s1-0.04,s1+0.04,n1);float shape2=smoothstep(s2-0.04,s2+0.04,n2);
+  float contour=smoothstep(0.02,0.0,abs(fract(n1*6.0)-0.5));
+  contour+=smoothstep(0.02,0.0,abs(fract(n2*5.0)-0.5))*0.5;
+  vec3 col=c3;col=mix(col,c2,shape1);col=mix(col,c1,shape2*0.85);col*=1.0-contour*0.12;
+  return mix(c2,col,surfIntens);}`,
+};
+
+const CLOUD_FN = {
+warped: `
+float cloudMask(vec3 p){
+  if(cloudDens<0.001)return 0.0;
+  vec3 cp=rotY(p,cloudRot);vec3 sOff=vec3(time*0.004,time*0.003,time*0.0025);
+  float yAniso=mix(3.0,1.0,cloudShp);float warpStr=mix(0.35,1.6,cloudShp);
+  vec3 warp=vec3(fbm4(cp*1.8+sOff),fbm4(cp*1.8+sOff+vec3(13.1)),fbm4(cp*1.8+sOff+vec3(27.7)))-0.5;
+  vec3 sp=vec3(cp.x+sOff.x*0.2,cp.y*yAniso,cp.z+sOff.y*0.2)+warp*warpStr;
+  float cA=fbm2(sp*2.0);vec3 sp2=vec3(cp.x*0.7,cp.y*yAniso*0.55,cp.z*0.7)+warp*warpStr*0.6;
+  float cB=fbm2(sp2+sOff*0.1);float cC=fbm4(cp*6.5+sOff*0.7+vec3(55.0));
+  float field=cA*0.60+cB*0.30+cC*0.18;float latFade=1.0-pow(abs(cp.y),3.0)*0.25;
+  float thresh=mix(0.78,0.18,cloudDens);return smoothstep(thresh,thresh+0.04,field)*latFade;}`,
+ridged_wisps: `
+float cloudMask(vec3 p){
+  if(cloudDens<0.001)return 0.0;
+  vec3 cp=rotY(p,cloudRot);vec3 sOff=vec3(time*0.004,time*0.002,time*0.003);
+  float yStretch=mix(2.0,1.0,cloudShp);vec3 sp=vec3(cp.x,cp.y*yStretch,cp.z);
+  float warpN=noise3d(sp*1.5+sOff);sp+=vec3(warpN-0.5)*mix(0.2,0.7,cloudShp)*0.4;
+  float field=ridgedFbm(sp*2.5+sOff);float latFade=1.0-pow(abs(cp.y),3.0)*0.25;
+  float thresh=mix(0.72,0.12,cloudDens);return smoothstep(thresh,thresh+0.06,field)*latFade;}`,
+warped_layers: `
+float singleLayer(vec3 cp,vec3 off,float scale,float yAni,float warpAmt){
+  vec3 sp=vec3(cp.x,cp.y*yAni,cp.z)*scale+off;
+  float w1=noise3d(sp*0.7+off)-0.5;float w2=noise3d(sp*0.7+off+vec3(17.0))-0.5;
+  sp.x+=w1*warpAmt;sp.z+=w2*warpAmt;return fbm2(sp);}
+float cloudMask(vec3 p){
+  if(cloudDens<0.001)return 0.0;
+  vec3 cp=rotY(p,cloudRot);float yAni=mix(2.5,1.0,cloudShp);float warpAmt=mix(0.25,0.7,cloudShp);
+  vec3 off1=vec3(time*0.005,time*0.003,time*0.004);vec3 off2=vec3(time*0.003,time*0.005,time*0.002)+vec3(30.0);vec3 off3=vec3(time*0.002,time*0.004,time*0.006)+vec3(60.0);
+  float l1=singleLayer(cp,off1,1.6,yAni,warpAmt);float l2=singleLayer(cp,off2,3.0,yAni*0.8,warpAmt*0.8);float l3=singleLayer(cp,off3,5.5,yAni*0.6,warpAmt*0.5);
+  float tBase=mix(0.72,0.06,cloudDens*cloudDens*0.6+cloudDens*0.4);float stagger=mix(0.12,0.005,cloudDens);
+  float edgeW=mix(0.14,0.03,cloudDens);
+  float m1=smoothstep(tBase,tBase+edgeW,l1);float m2=smoothstep(tBase+stagger,tBase+stagger+edgeW*0.8,l2);float m3=smoothstep(tBase+stagger*2.0,tBase+stagger*2.0+edgeW*0.6,l3);
+  float w1m=mix(0.45,0.92,cloudDens);float w2m=mix(0.28,0.80,cloudDens);float w3m=mix(0.18,0.70,cloudDens);
+  float combined=1.0-(1.0-m1*w1m)*(1.0-m2*w2m)*(1.0-m3*w3m);
+  float latFade=1.0-pow(abs(cp.y),3.0)*0.25;return combined*latFade;}`,
+warped_wisps: `
+float cloudMask(vec3 p){
+  if(cloudDens<0.001)return 0.0;
+  vec3 cp=rotY(p,cloudRot);vec3 sOff=vec3(time*0.004,time*0.003,time*0.0025);
+  float yAniso=mix(3.0,1.0,cloudShp);float warpStr=mix(0.35,1.6,cloudShp);
+  vec3 warp=vec3(fbm4(cp*1.8+sOff),fbm4(cp*1.8+sOff+vec3(13.1)),fbm4(cp*1.8+sOff+vec3(27.7)))-0.5;
+  vec3 sp=vec3(cp.x+sOff.x*0.2,cp.y*yAniso,cp.z+sOff.y*0.2)+warp*warpStr;
+  float cA=fbm2(sp*2.0);vec3 sp2=vec3(cp.x*0.7,cp.y*yAniso*0.55,cp.z*0.7)+warp*warpStr*0.6;
+  float cB=fbm2(sp2+sOff*0.1);
+  float yStr=mix(1.6,1.0,cloudShp);vec3 rp=vec3(sp.x,sp.y*yStr,sp.z);
+  float ridgeDetail=ridgedFbm(rp*3.0+sOff*0.6);
+  float field=cA*0.48+cB*0.22+ridgeDetail*0.30;
+  float erosion=ridgedFbm(cp*5.0+sOff*0.4+vec3(42.0));field=field*(0.7+erosion*0.3);
+  float latFade=1.0-pow(abs(cp.y),3.0)*0.25;
+  float thresh=mix(0.78,0.18,cloudDens);return smoothstep(thresh,thresh+0.06,field)*latFade;}`,
+};
+
+const MAIN_FN = `
+void main(){
+  vec2 uv=vPos.xy;float r2=dot(uv,uv);
+  if(r2>1.0){gl_FragColor=vec4(0.0);return;}
+  vec3 p=vec3(uv.x,uv.y,sqrt(1.0-r2));
+  p=rotY(p,rotation);
+  vec3 col=surfaceColor(p);
+  if(showCloudsU>0.5){float cloud=cloudMask(p);col=mix(col,c0,cloud*0.92);}
+  // Shading
+  float rim=1.0-sqrt(1.0-r2);
+  vec3 lightDir=normalize(vec3(-0.45,0.55,0.70));
+  float nz=sqrt(1.0-r2);vec3 norm=vec3(uv.x,uv.y,nz);
+  float lit=clamp(dot(normalize(norm),lightDir)*0.5+0.5,0.0,1.0);
+  col*=mix(0.60,1.0,lit);
+  col*=1.0-rim*0.45;
+  // Grain
+  float gr=fract(sin(dot(gl_FragCoord.xy,vec2(12.9898,78.233)))*43758.5453);col+=(gr-0.5)*grainAmt;
+  gl_FragColor=vec4(col,smoothstep(1.0,0.995,sqrt(r2)));
+}`;
+
+// ═══════════════════════════════════════════════════════════════════════════
+// WEBGL GLOBE
+// ═══════════════════════════════════════════════════════════════════════════
+
+const GLOBE_SIZE = 240;
+const DPR = Math.min(window.devicePixelRatio || 1, 2);
+let gl, currentProg, unifLocs = {};
+let currentSurfKey = '', currentCloudKey = '';
+let elapsed = 0, lastFrame = 0;
+let surfAngle = 0, cloudAngle = 0;
+
+function initGL(){
+  const canvas = document.getElementById('globe-canvas');
+  canvas.width = GLOBE_SIZE * DPR;
+  canvas.height = GLOBE_SIZE * DPR;
+  canvas.style.width = GLOBE_SIZE + 'px';
+  canvas.style.height = GLOBE_SIZE + 'px';
+  gl = canvas.getContext('webgl', { alpha:true, premultipliedAlpha:false });
+  if(!gl) return;
+  const buf = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1,0, 1,-1,0, -1,1,0, 1,1,0]), gl.STATIC_DRAW);
+  gl.enableVertexAttribArray(0);
+  gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 0, 0);
+}
+
+function compileShader(surfKey, cloudKey){
+  if(surfKey===currentSurfKey && cloudKey===currentCloudKey && currentProg) return;
+  currentSurfKey = surfKey; currentCloudKey = cloudKey;
+  const fragSrc = PREAMBLE + SURF_FN[surfKey] + CLOUD_FN[cloudKey] + MAIN_FN;
+  const vs = gl.createShader(gl.VERTEX_SHADER);
+  gl.shaderSource(vs, VERT); gl.compileShader(vs);
+  const fs = gl.createShader(gl.FRAGMENT_SHADER);
+  gl.shaderSource(fs, fragSrc); gl.compileShader(fs);
+  if(!gl.getShaderParameter(fs, gl.COMPILE_STATUS)){console.error('Frag:',gl.getShaderInfoLog(fs));gl.deleteShader(vs);gl.deleteShader(fs);return;}
+  if(currentProg) gl.deleteProgram(currentProg);
+  const prog = gl.createProgram();
+  gl.attachShader(prog, vs); gl.attachShader(prog, fs);
+  gl.bindAttribLocation(prog, 0, 'position');
+  gl.linkProgram(prog);
+  if(!gl.getProgramParameter(prog, gl.LINK_STATUS)){console.error('Link:',gl.getProgramInfoLog(prog));gl.deleteShader(vs);gl.deleteShader(fs);return;}
+  currentProg = prog;
+  gl.useProgram(prog);
+  const names = ['time','rotation','cloudRot','seed','c0','c1','c2','c3','noiseThresh1','noiseThresh2','surfIntens','cloudDens','cloudShp','showCloudsU','grainAmt'];
+  unifLocs = {};
+  names.forEach(n => { unifLocs[n] = gl.getUniformLocation(prog, n); });
+  gl.deleteShader(vs); gl.deleteShader(fs);
+}
+
+function renderGlobe(dt){
+  if(!gl||!currentProg) return;
+  const s = STATES[activePhase];
+  // West-to-east = positive rotation in scene space. rotY with negative angle
+  // makes features move rightward (west→east) when viewed from front.
+  surfAngle -= dt * surfaceSpeed * 0.1;
+  cloudAngle -= dt * cloudSpeed * 0.12;
+  gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+  gl.clearColor(0,0,0,0); gl.clear(gl.COLOR_BUFFER_BIT);
+  gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+  gl.useProgram(currentProg);
+  gl.uniform1f(unifLocs.time, elapsed);
+  gl.uniform1f(unifLocs.rotation, surfAngle);
+  gl.uniform1f(unifLocs.cloudRot, cloudAngle);
+  gl.uniform1f(unifLocs.seed, s.seed);
+  const rgb = s.palette.map(hexToRgb01);
+  gl.uniform3fv(unifLocs.c0, rgb[0]);
+  gl.uniform3fv(unifLocs.c1, rgb[1]);
+  gl.uniform3fv(unifLocs.c2, rgb[2]);
+  gl.uniform3fv(unifLocs.c3, rgb[3]);
+  gl.uniform1f(unifLocs.noiseThresh1, s.noiseThresh1);
+  gl.uniform1f(unifLocs.noiseThresh2, s.noiseThresh2);
+  gl.uniform1f(unifLocs.surfIntens, s.surfaceIntensity);
+  gl.uniform1f(unifLocs.cloudDens, s.cloudDensity);
+  gl.uniform1f(unifLocs.cloudShp, s.cloudShape);
+  gl.uniform1f(unifLocs.showCloudsU, showClouds ? 1.0 : 0.0);
+  gl.uniform1f(unifLocs.grainAmt, grainAmount);
+  gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+}
+
+function updateHazeOverlays(){
+  const s = STATES[activePhase];
+  const lh = document.getElementById('light-haze');
+  const dh = document.getElementById('dark-haze');
+  if(showLightHaze){
+    const [r,g,b] = hexToRgb01(s.hazeColor).map(v => Math.round(v*255));
+    lh.style.background = `radial-gradient(circle closest-side at center, rgba(${r},${g},${b},0) 50%, rgba(${r},${g},${b},1) 100%)`;
+    lh.style.opacity = s.hazeOpacity; lh.style.display = '';
+  } else { lh.style.display = 'none'; }
+  if(showDarkHaze){
+    const [r,g,b] = hexToRgb01(s.darkHazeColor).map(v => Math.round(v*255));
+    dh.style.background = `radial-gradient(circle closest-side at center, rgba(${r},${g},${b},0) 40%, rgba(${r},${g},${b},1) 100%)`;
+    dh.style.opacity = s.darkHazeOpacity; dh.style.display = '';
+  } else { dh.style.display = 'none'; }
+}
+
+function animationLoop(ts){
+  requestAnimationFrame(animationLoop);
+  const dt = lastFrame ? (ts - lastFrame)/1000 : 0.016;
+  lastFrame = ts; elapsed += dt;
+  renderGlobe(dt);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// COLOUR WHEEL
+// ═══════════════════════════════════════════════════════════════════════════
+
+const wheelCanvas = document.getElementById('picker-wheel');
+const wheelCtx = wheelCanvas.getContext('2d');
+const crosshair = document.getElementById('picker-crosshair');
+const lightnessSlider = document.getElementById('lightness-slider');
+const lightnessValEl = document.getElementById('lightness-val');
+const hexInput = document.getElementById('hex-input');
+const hexSwatch = document.getElementById('hex-swatch');
+
+let curH=0, curS=100, curL=50, wheelDrag=false;
+
+function drawWheel(){
+  const w=wheelCanvas.width, cx=w/2, cy=w/2, r=w/2-2;
+  const img=wheelCtx.createImageData(w,w);
+  for(let y=0;y<w;y++) for(let x=0;x<w;x++){
+    const dx=x-cx,dy=y-cy,dist=Math.sqrt(dx*dx+dy*dy),idx=(y*w+x)*4;
+    if(dist<=r){
+      const hue=(Math.atan2(dy,dx)*180/Math.PI+360)%360, sat=(dist/r)*100;
+      const [cr,cg,cb]=hslToRgb(hue,sat,curL);
+      img.data[idx]=cr*255;img.data[idx+1]=cg*255;img.data[idx+2]=cb*255;img.data[idx+3]=255;
+    } else if(dist<=r+1.5){
+      const alpha=Math.max(0,1-(dist-r)/1.5);
+      const hue=(Math.atan2(dy,dx)*180/Math.PI+360)%360;
+      const [cr,cg,cb]=hslToRgb(hue,100,curL);
+      img.data[idx]=cr*255;img.data[idx+1]=cg*255;img.data[idx+2]=cb*255;img.data[idx+3]=alpha*255;
+    }
+  }
+  wheelCtx.putImageData(img,0,0);
+}
+
+function updateCrosshair(){
+  const w=200,cx=w/2,cy=w/2,r=w/2-1;
+  const angle=curH*Math.PI/180, dist=(curS/100)*r;
+  crosshair.style.left=(cx+Math.cos(angle)*dist)+'px';
+  crosshair.style.top=(cy+Math.sin(angle)*dist)+'px';
+}
+
+function updateLightnessBg(){
+  const c0=hslToHex(curH,curS,0),c50=hslToHex(curH,curS,50),c100=hslToHex(curH,curS,100);
+  lightnessSlider.style.background=`linear-gradient(to right,${c0},${c50},${c100})`;
+}
+
+function applyCurrentColour(){
+  const hex=hslToHex(curH,curS,curL).toUpperCase();
+  hexInput.value=hex; hexSwatch.style.background=hex;
+  updateCrosshair(); updateLightnessBg();
+  const s=STATES[activePhase];
+  if(activeTarget==='hazeColor'){s.hazeColor=hex; updateHazeOverlays();}
+  else if(activeTarget==='darkHazeColor'){s.darkHazeColor=hex; updateHazeOverlays();}
+  else { s.palette[parseInt(activeTarget[1])]=hex; }
+  refreshPhaseSwatches(activePhase); refreshPreviewSlots(); refreshHazePickers(); refreshStrip();
+}
+
+function setColourFromHex(raw){
+  let hex=raw.replace('#','');
+  if(hex.length===3) hex=hex[0]+hex[0]+hex[1]+hex[1]+hex[2]+hex[2];
+  if(!/^[0-9a-fA-F]{6}$/.test(hex)) return;
+  hex='#'+hex.toUpperCase();
+  const [h,s,l]=hexToHsl(hex); curH=h;curS=s;curL=l;
+  lightnessSlider.value=Math.round(l); lightnessValEl.textContent=Math.round(l);
+  drawWheel(); applyCurrentColour();
+}
+
+function loadColourFromTarget(){
+  const s=STATES[activePhase];
+  let hex;
+  if(activeTarget==='hazeColor') hex=s.hazeColor;
+  else if(activeTarget==='darkHazeColor') hex=s.darkHazeColor;
+  else hex=s.palette[parseInt(activeTarget[1])];
+  const [h,ss,l]=hexToHsl(hex); curH=h;curS=ss;curL=l;
+  lightnessSlider.value=Math.round(l); lightnessValEl.textContent=Math.round(l);
+  hexInput.value=hex.toUpperCase(); hexSwatch.style.background=hex;
+  drawWheel(); updateCrosshair(); updateLightnessBg();
+}
+
+function wheelPick(x,y){
+  const rect=wheelCanvas.getBoundingClientRect();
+  const dx=(x-rect.left)-rect.width/2, dy=(y-rect.top)-rect.height/2, r=rect.width/2-1;
+  const dist=Math.min(Math.sqrt(dx*dx+dy*dy),r);
+  curH=(Math.atan2(dy,dx)*180/Math.PI+360)%360; curS=(dist/r)*100;
+  applyCurrentColour();
+}
+
+wheelCanvas.addEventListener('pointerdown',e=>{wheelDrag=true;_undoPushedThisDrag=false;pushUndo();_undoPushedThisDrag=true;wheelCanvas.setPointerCapture(e.pointerId);wheelPick(e.clientX,e.clientY);});
+wheelCanvas.addEventListener('pointermove',e=>{if(wheelDrag)wheelPick(e.clientX,e.clientY);});
+wheelCanvas.addEventListener('pointerup',()=>{wheelDrag=false;_undoPushedThisDrag=false;});
+
+let _lightnessDrag=false;
+lightnessSlider.addEventListener('pointerdown',()=>{_lightnessDrag=true;_undoPushedThisDrag=false;pushUndo();_undoPushedThisDrag=true;});
+lightnessSlider.addEventListener('input',()=>{
+  curL=parseFloat(lightnessSlider.value); lightnessValEl.textContent=Math.round(curL);
+  drawWheel(); applyCurrentColour();
+});
+lightnessSlider.addEventListener('pointerup',()=>{_lightnessDrag=false;_undoPushedThisDrag=false;});
+
+hexInput.addEventListener('change',()=>{_undoPushedThisDrag=false;pushUndo();_undoPushedThisDrag=false;setColourFromHex(hexInput.value);});
+hexInput.addEventListener('keydown',e=>{if(e.key==='Enter'){_undoPushedThisDrag=false;pushUndo();_undoPushedThisDrag=false;setColourFromHex(hexInput.value);}});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// PHASE LIST
+// ═══════════════════════════════════════════════════════════════════════════
+
+function buildPhaseList(){
+  const el=document.getElementById('phase-list');el.innerHTML='';
+  STATES.forEach((s,i)=>{
+    const div=document.createElement('div');
+    div.className='phase-item'+(i===activePhase?' active':'');
+    div.innerHTML=`<span class="phase-index">${String(i+1).padStart(2,'0')}</span><div class="phase-info"><div class="phase-name">${s.name}</div><div class="phase-time">${s.span[0]}\u2013${s.span[1]} Ma</div></div><div class="phase-swatches" data-phase="${i}"></div>`;
+    const sw=div.querySelector('.phase-swatches');
+    for(let j=0;j<4;j++){
+      const c=document.createElement('div');
+      c.className='phase-swatch'+(i===activePhase&&activeTarget==='c'+j?' editing':'');
+      c.style.background=s.palette[j]; c.dataset.slot=j;
+      c.addEventListener('click',e=>{e.stopPropagation();selectTarget(i,'c'+j);});
+      sw.appendChild(c);
+    }
+    div.addEventListener('click',()=>selectTarget(i,activeTarget));
+    el.appendChild(div);
+  });
+}
+
+function refreshPhaseSwatches(idx){
+  const items=document.querySelectorAll('.phase-item');
+  const item=items[idx]; if(!item) return;
+  item.querySelectorAll('.phase-swatch').forEach((sw,j)=>{
+    sw.style.background=STATES[idx].palette[j];
+    sw.classList.toggle('editing',idx===activePhase&&activeTarget==='c'+j);
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// STRIP
+// ═══════════════════════════════════════════════════════════════════════════
+
+function buildStrip(){
+  const el=document.getElementById('palette-strip'); el.innerHTML='';
+  STATES.forEach((s,i)=>{
+    const cell=document.createElement('div');
+    cell.className='strip-cell'+(i===activePhase?' active':'');
+    for(let j=3;j>=0;j--){const band=document.createElement('div');band.className='strip-band';band.style.background=s.palette[j];cell.appendChild(band);}
+    const lbl=document.createElement('div');lbl.className='strip-label';lbl.textContent=s.name.replace(/ \(.*\)/,'');cell.appendChild(lbl);
+    cell.addEventListener('click',()=>selectTarget(i,activeTarget));
+    el.appendChild(cell);
+  });
+}
+
+function refreshStrip(){
+  document.querySelectorAll('.strip-cell').forEach((cell,i)=>{
+    const bands=cell.querySelectorAll('.strip-band');
+    [3,2,1,0].forEach((ci,bi)=>{bands[bi].style.background=STATES[i].palette[ci];});
+    cell.classList.toggle('active',i===activePhase);
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// PREVIEW SLOTS + HAZE PICKERS
+// ═══════════════════════════════════════════════════════════════════════════
+
+function refreshPreviewSlots(){
+  const container=document.getElementById('preview-slots'); container.innerHTML='';
+  for(let j=0;j<4;j++){
+    const slot=document.createElement('div');
+    slot.className='preview-slot'+(activeTarget==='c'+j?' active':'');
+    slot.innerHTML=`<div class="preview-slot-circle" style="background:${STATES[activePhase].palette[j]}"></div><div class="preview-slot-label">${SLOT_LABELS[j]}</div>`;
+    slot.addEventListener('click',()=>selectTarget(activePhase,'c'+j));
+    container.appendChild(slot);
+  }
+}
+
+function refreshHazePickers(){
+  const s=STATES[activePhase];
+  document.getElementById('lh-circle').style.background=s.hazeColor;
+  document.getElementById('dh-circle').style.background=s.darkHazeColor;
+  document.getElementById('pick-light-haze').classList.toggle('active',activeTarget==='hazeColor');
+  document.getElementById('pick-dark-haze').classList.toggle('active',activeTarget==='darkHazeColor');
+  document.getElementById('lh-opacity-slider').value=Math.round(s.hazeOpacity*100);
+  document.getElementById('lh-opacity-val').textContent=Math.round(s.hazeOpacity*100);
+  document.getElementById('dh-opacity-slider').value=Math.round(s.darkHazeOpacity*100);
+  document.getElementById('dh-opacity-val').textContent=Math.round(s.darkHazeOpacity*100);
+}
+
+document.getElementById('pick-light-haze').addEventListener('click',()=>selectTarget(activePhase,'hazeColor'));
+document.getElementById('pick-dark-haze').addEventListener('click',()=>selectTarget(activePhase,'darkHazeColor'));
+
+document.getElementById('lh-opacity-slider').addEventListener('pointerdown',()=>{_undoPushedThisDrag=false;pushUndo();_undoPushedThisDrag=true;});
+document.getElementById('lh-opacity-slider').addEventListener('input',function(){
+  STATES[activePhase].hazeOpacity=this.value/100;
+  document.getElementById('lh-opacity-val').textContent=this.value; updateHazeOverlays();
+});
+document.getElementById('lh-opacity-slider').addEventListener('pointerup',()=>{_undoPushedThisDrag=false;});
+
+document.getElementById('dh-opacity-slider').addEventListener('pointerdown',()=>{_undoPushedThisDrag=false;pushUndo();_undoPushedThisDrag=true;});
+document.getElementById('dh-opacity-slider').addEventListener('input',function(){
+  STATES[activePhase].darkHazeOpacity=this.value/100;
+  document.getElementById('dh-opacity-val').textContent=this.value; updateHazeOverlays();
+});
+document.getElementById('dh-opacity-slider').addEventListener('pointerup',()=>{_undoPushedThisDrag=false;});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// CONTROLS
+// ═══════════════════════════════════════════════════════════════════════════
+
+function buildSurfaceTabs(){
+  const el=document.getElementById('surface-tabs'); el.innerHTML='';
+  const s=STATES[activePhase]; const isSdf=s.useLandSea>0;
+  SURFACE_APPROACHES.forEach(a=>{
+    const btn=document.createElement('div');
+    btn.className='approach-tab'+(s.surfaceApproach===a.id?' active':'')+(isSdf&&a.id!=='screenprint'?' disabled':'');
+    btn.textContent=a.label;
+    btn.addEventListener('click',()=>{
+      if(isSdf&&a.id!=='screenprint') return;
+      _undoPushedThisDrag=false;pushUndo();_undoPushedThisDrag=false;
+      STATES[activePhase].surfaceApproach=a.id;
+      buildSurfaceTabs(); recompileShader();
+    });
+    el.appendChild(btn);
+  });
+}
+
+function buildCloudTabs(){
+  const el=document.getElementById('cloud-tabs'); el.innerHTML='';
+  const s=STATES[activePhase];
+  CLOUD_APPROACHES.forEach(a=>{
+    const btn=document.createElement('div');
+    btn.className='approach-tab'+(s.cloudApproach===a.id?' active':'');
+    btn.textContent=a.label;
+    btn.addEventListener('click',()=>{
+      _undoPushedThisDrag=false;pushUndo();_undoPushedThisDrag=false;
+      STATES[activePhase].cloudApproach=a.id;
+      buildCloudTabs(); recompileShader();
+    });
+    el.appendChild(btn);
+  });
+}
+
+function recompileShader(){
+  const s=STATES[activePhase];
+  compileShader(s.surfaceApproach, s.cloudApproach);
+}
+
+// Slider wiring — push one undo per drag
+function wirePhaseSlider(sliderId, valId, stateKey, fmt){
+  const slider=document.getElementById(sliderId);
+  const valEl=document.getElementById(valId);
+  slider.addEventListener('pointerdown',()=>{_undoPushedThisDrag=false;pushUndo();_undoPushedThisDrag=true;});
+  slider.addEventListener('input',()=>{
+    const v=parseFloat(slider.value);
+    STATES[activePhase][stateKey]=v; valEl.textContent=fmt(v);
+  });
+  slider.addEventListener('pointerup',()=>{_undoPushedThisDrag=false;});
+}
+
+wirePhaseSlider('sl-t1','val-t1','noiseThresh1',v=>v.toFixed(2));
+wirePhaseSlider('sl-t2','val-t2','noiseThresh2',v=>v.toFixed(2));
+wirePhaseSlider('sl-si','val-si','surfaceIntensity',v=>v.toFixed(2));
+wirePhaseSlider('sl-cd','val-cd','cloudDensity',v=>v.toFixed(2));
+wirePhaseSlider('sl-cs','val-cs','cloudShape',v=>v.toFixed(2));
+
+// Speed sliders — global, no undo needed
+document.getElementById('sl-ss').addEventListener('input',function(){
+  surfaceSpeed=parseFloat(this.value);
+  document.getElementById('val-ss').textContent=surfaceSpeed.toFixed(1)+'\u00d7';
+});
+document.getElementById('sl-csp').addEventListener('input',function(){
+  cloudSpeed=parseFloat(this.value);
+  document.getElementById('val-csp').textContent=cloudSpeed.toFixed(1)+'\u00d7';
+});
+
+// Grain — global
+document.getElementById('sl-grain').addEventListener('input',function(){
+  grainAmount=parseFloat(this.value);
+  document.getElementById('val-grain').textContent=grainAmount.toFixed(3);
+});
+
+// Toggles
+document.getElementById('tog-clouds').addEventListener('change',function(){showClouds=this.checked;});
+document.getElementById('tog-lh').addEventListener('change',function(){showLightHaze=this.checked;updateHazeOverlays();});
+document.getElementById('tog-dh').addEventListener('change',function(){showDarkHaze=this.checked;updateHazeOverlays();});
+
+function loadSlidersFromPhase(){
+  const s=STATES[activePhase];
+  document.getElementById('sl-t1').value=s.noiseThresh1; document.getElementById('val-t1').textContent=s.noiseThresh1.toFixed(2);
+  document.getElementById('sl-t2').value=s.noiseThresh2; document.getElementById('val-t2').textContent=s.noiseThresh2.toFixed(2);
+  document.getElementById('sl-si').value=s.surfaceIntensity; document.getElementById('val-si').textContent=s.surfaceIntensity.toFixed(2);
+  document.getElementById('sl-cd').value=s.cloudDensity; document.getElementById('val-cd').textContent=s.cloudDensity.toFixed(2);
+  document.getElementById('sl-cs').value=s.cloudShape; document.getElementById('val-cs').textContent=s.cloudShape.toFixed(2);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SELECTION
+// ═══════════════════════════════════════════════════════════════════════════
+
+function selectTarget(phase, target){
+  const prevPhase=activePhase;
+  activePhase=phase; activeTarget=target;
+  if(target.startsWith('c')) activeSlot=parseInt(target[1]);
+
+  document.querySelectorAll('.phase-item').forEach((item,i)=>{
+    item.classList.toggle('active',i===phase);
+    item.querySelectorAll('.phase-swatch').forEach((sw,j)=>{
+      sw.classList.toggle('editing',i===phase&&target==='c'+j);
+    });
+  });
+
+  document.getElementById('preview-name').textContent=STATES[phase].name;
+  document.getElementById('preview-span').textContent=STATES[phase].span[0]+'\u2013'+STATES[phase].span[1]+' Ma';
+
+  refreshPreviewSlots(); refreshHazePickers(); refreshStrip();
+  loadColourFromTarget(); loadSlidersFromPhase();
+  buildSurfaceTabs(); buildCloudTabs(); updateHazeOverlays();
+
+  document.getElementById('btn-undo').disabled=!undoStacks[phase].length;
+
+  if(prevPhase!==phase){
+    // Force recompile when switching phases
+    currentSurfKey=''; currentCloudKey='';
+    recompileShader();
+  }
+}
+
+function fullRefresh(){
+  refreshPreviewSlots(); refreshHazePickers(); refreshStrip();
+  refreshPhaseSwatches(activePhase); loadColourFromTarget();
+  loadSlidersFromPhase(); buildSurfaceTabs(); buildCloudTabs();
+  updateHazeOverlays();
+  currentSurfKey=''; currentCloudKey=''; recompileShader();
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// UNDO / RESET / EXPORT
+// ═══════════════════════════════════════════════════════════════════════════
+
+document.getElementById('btn-undo').addEventListener('click',popUndo);
+
+document.getElementById('btn-reset').addEventListener('click',()=>{
+  _undoPushedThisDrag=false; pushUndo(); _undoPushedThisDrag=false;
+  const orig=JSON.parse(JSON.stringify(ORIGINALS[activePhase]));
+  Object.keys(orig).forEach(k=>{STATES[activePhase][k]=orig[k];});
+  fullRefresh();
+});
+
+document.getElementById('btn-export').addEventListener('click',()=>{
+  const lines=STATES.map((s,i)=>{
+    const p=s.palette.map(c=>`'${c}'`).join(',');
+    return `  // ${s.name} (${s.span[0]}\u2013${s.span[1]} Ma)\n  palette: [${p}],\n  hazeColor: '${s.hazeColor}', hazeOpacity: ${s.hazeOpacity.toFixed(2)},\n  darkHazeColor: '${s.darkHazeColor}', darkHazeOpacity: ${s.darkHazeOpacity.toFixed(2)},\n  noiseThresh1: ${s.noiseThresh1.toFixed(2)}, noiseThresh2: ${s.noiseThresh2.toFixed(2)}, surfaceIntensity: ${s.surfaceIntensity.toFixed(2)},\n  cloudDensity: ${s.cloudDensity.toFixed(2)}, cloudShape: ${s.cloudShape.toFixed(2)},\n  surfaceApproach: '${s.surfaceApproach}', cloudApproach: '${s.cloudApproach}',`;
+  });
+  navigator.clipboard.writeText(lines.join('\n\n')).then(()=>{
+    const btn=document.getElementById('btn-export');
+    btn.classList.add('copied');btn.textContent='Copied!';
+    setTimeout(()=>{btn.classList.remove('copied');btn.textContent='Copy palette JS';},2000);
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// KEYBOARD
+// ═══════════════════════════════════════════════════════════════════════════
+
+document.addEventListener('keydown',e=>{
+  if(e.target.tagName==='INPUT') return;
+  const targets=['c0','c1','c2','c3','hazeColor','darkHazeColor'];
+  if(e.key==='ArrowDown'||e.key==='j'){e.preventDefault();selectTarget(Math.min(activePhase+1,STATES.length-1),activeTarget);document.querySelectorAll('.phase-item')[activePhase]?.scrollIntoView({block:'nearest'});}
+  if(e.key==='ArrowUp'||e.key==='k'){e.preventDefault();selectTarget(Math.max(activePhase-1,0),activeTarget);document.querySelectorAll('.phase-item')[activePhase]?.scrollIntoView({block:'nearest'});}
+  if(e.key==='ArrowRight'||e.key==='l'){e.preventDefault();const idx=targets.indexOf(activeTarget);if(idx<targets.length-1)selectTarget(activePhase,targets[idx+1]);}
+  if(e.key==='ArrowLeft'||e.key==='h'){e.preventDefault();const idx=targets.indexOf(activeTarget);if(idx>0)selectTarget(activePhase,targets[idx-1]);}
+  if((e.metaKey||e.ctrlKey)&&e.key==='z'){e.preventDefault();popUndo();}
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════════════════════════════
+
+buildPhaseList();
+buildStrip();
+initGL();
+selectTarget(0,'c1');
+recompileShader();
+requestAnimationFrame(animationLoop);
+</script>
+</body>
+</html>
