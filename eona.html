@@ -25,6 +25,7 @@
       --font-mono: 'Space Mono', monospace;
       --font-serif: 'Source Serif 4', Georgia, serif;
       --clock-size: min(85vmin, 600px);
+      --header-h: 68px; /* header padding (24px) + logo (20px) + padding (24px) */
       --earth-size: calc(var(--clock-size) * 0.45);
       /* Canvas is 1.25× the visual sphere diameter. The camera is zoomed out
          so the sphere still appears at --earth-size, but has ~12% breathing
@@ -44,9 +45,9 @@
       display: flex;
       flex-direction: column;
       align-items: center;
-      justify-content: center;
+      justify-content: flex-start;
       min-height: 100vh;
-      padding: 20px;
+      padding: var(--header-h) 32px 32px;
     }
     
     .header {
@@ -103,7 +104,8 @@
       flex-shrink: 0;
     }
 
-    .toggle.active .toggle-dot { background: #FF4D00; }
+    .toggle.active .toggle-dot { background: #FF4D00; transition: background 0.2s ease; }
+    .toggle.active:hover .toggle-dot { background: #F6857A; }
 
     .toggle-label {
       font-family: var(--font-mono);
@@ -227,33 +229,23 @@
       overflow: hidden;
     }
     
-    .info-panel {
-      position: fixed;
-      top: calc(50% + min(85vmin, 600px) / 2);
-      bottom: 0;
-      left: 0;
-      right: 0;
-      padding: 0 32px 32px;
-      display: flex;
-      flex-direction: column;
-      align-items: stretch;
-      z-index: 100;
-      pointer-events: none;
-    }
+    .flex-spacer { flex: 1; min-height: 0; }
 
     .info-center {
-      flex: 1;
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
       gap: 16px;
+      min-height: 64px;
     }
 
     .info-bottom {
+      align-self: stretch;
       display: flex;
       justify-content: space-between;
-      align-items: stretch;
+      align-items: flex-end;
+      min-height: 25px;
     }
 
     .info-event-name {
@@ -286,6 +278,13 @@
       text-box: trim-both cap alphabetic;
     }
 
+    .info-center-bottom {
+      flex: 1;
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+    }
+
     .center-timestamp {
       font-family: var(--font-mono);
       font-size: 12px;
@@ -293,7 +292,7 @@
       color: #aaaaaa;
       line-height: 1;
       text-box: trim-both cap alphabetic;
-      text-align: right;
+      text-align: center;
     }
 
     .center-event-desc {
@@ -315,22 +314,20 @@
     .info-right {
       flex: 1;
       display: flex;
-      flex-direction: column;
       align-items: flex-end;
       justify-content: flex-end;
-      gap: 8px;
     }
 
     #time-display {
       font-family: var(--font-mono);
       font-size: 12px;
-      font-weight: 400;
+      font-weight: 700;
       color: #aaaaaa;
       line-height: 1;
       text-box: trim-both cap alphabetic;
     }
-    body.scrubbing #time-display { color: #666666; }
-    
+    body.scrubbing #time-display { display: none; }
+
     .tooltip {
       position: fixed;
       background: #222222;
@@ -350,36 +347,27 @@
 
     /* === Scrubbing === */
 
-    /* Hidden by default — shown only when the body has .scrubbing */
-    .return-wrapper {
+    .return-to-now {
       display: none;
-      flex-direction: column;
-      align-items: flex-end;
-      gap: 8px;
-    }
-    body.scrubbing .return-wrapper { display: flex; }
-
-    .reset-label {
       font-family: var(--font-mono);
-      font-size: 10px;
-      letter-spacing: 1px;
-      text-transform: uppercase;
-      color: #E34E2A;
+      font-size: 12px;
+      font-weight: 400;
+      color: #000000;
+      background: var(--accent);
+      border: none;
+      border-radius: 999px;
+      padding: 8px 12px;
+      margin-right: -12px;
+      cursor: pointer;
+      pointer-events: auto;
       line-height: 1;
       text-box: trim-both cap alphabetic;
       white-space: nowrap;
-      pointer-events: none;
+      transform: translateY(8px);
+      transition: background 0.2s ease;
     }
-
-    .return-to-now {
-      display: block;
-      cursor: pointer;
-      pointer-events: auto;
-      flex-shrink: 0;
-      align-self: center;
-    }
-    .return-to-now rect { transition: fill 0.2s ease; }
-    .return-to-now:hover rect { fill: #F78678; }
+    .return-to-now:hover { background: #F6857A; }
+    body.scrubbing .return-to-now { display: block; }
 
     /* Cursor cue DURING AN ACTIVE DRAG ONLY. We can't gate this on
        .scrubbing (which persists for the whole scrubbed-time session) because
@@ -393,8 +381,9 @@
     #infographic-layer .scrub-handle { cursor: grab; }
 
     @media (max-width: 600px) {
-      :root { --clock-size: 90vmin; }
-      .header, .info-panel { padding: 16px 20px; }
+      :root { --clock-size: 90vmin; --header-h: 52px; }
+      .header { padding: 16px 20px; }
+      body { padding: var(--header-h) 20px 20px; }
     }
   </style>
 </head>
@@ -418,16 +407,10 @@
           <span class="toggle-label">Clock</span>
         </button>
       </div>
-      <div class="return-wrapper">
-        <svg id="return-to-now" class="return-to-now" role="button" tabindex="0" aria-label="Return to now" width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <rect width="32" height="32" rx="16" fill="#E34E2A"/>
-          <path d="M16 7.5C20.6944 7.5 24.5 11.3056 24.5 16C24.5 20.6944 20.6944 24.5 16 24.5C11.3056 24.5 7.5 20.6944 7.5 16H8.5C8.5 20.1421 11.8579 23.5 16 23.5C20.1421 23.5 23.5 20.1421 23.5 16C23.5 11.8579 20.1421 8.5 16 8.5C13.9616 8.50006 12.114 9.31282 10.7617 10.6328L10.4121 10.2754L10.0625 9.91699C11.594 8.42191 13.6901 7.50006 16 7.5ZM9.55078 10.4668C9.71392 10.2769 9.88349 10.0927 10.0625 9.91797L10.4121 10.2754L10.7607 10.6328C10.5865 10.8029 10.4207 10.9816 10.2637 11.168H13.0508V12.168H8.55078V7.66797H9.55078V10.4668Z" fill="black"/>
-        </svg>
-        <span class="reset-label">Reset</span>
-      </div>
     </div>
   </header>
-  
+
+  <div class="flex-spacer"></div>
   <div class="clock-container">
     <svg class="clock-svg" id="infographic-layer" viewBox="0 0 400 400">
       <defs>
@@ -482,21 +465,24 @@
     </svg>
   </div>
   
-  <div class="info-panel">
-    <div class="info-center">
-      <div class="info-event-name">
-        <span id="event-name-suffix"></span>
-      </div>
-      <div class="center-event-desc" id="event-desc-center"></div>
+  <div class="flex-spacer"></div>
+  <div class="info-center">
+    <div class="info-event-name">
+      <span id="event-name-suffix"></span>
     </div>
-    <div class="info-bottom">
-      <div class="info-left">
-        <div class="era" id="era-display">Hadean Eon</div>
-      </div>
-      <div class="info-right">
-        <span id="time-display">00:00:00</span>
-        <div class="center-timestamp"><span id="years-display">4.5 billion years ago</span></div>
-      </div>
+    <div class="center-event-desc" id="event-desc-center"></div>
+  </div>
+  <div class="flex-spacer"></div>
+  <div class="info-bottom">
+    <div class="info-left">
+      <div class="era" id="era-display">Hadean Eon</div>
+    </div>
+    <div class="info-center-bottom">
+      <div class="center-timestamp"><span id="years-display">4.5 billion years ago</span></div>
+    </div>
+    <div class="info-right">
+      <span id="time-display">00:00:00</span>
+      <button id="return-to-now" class="return-to-now">Return to now</button>
     </div>
   </div>
   
@@ -1826,6 +1812,13 @@
         _indicatorGrab.setAttribute('class', 'scrub-handle');
         _indicatorGrab.style.touchAction = 'none';
 
+        _indicatorGrab.addEventListener('mouseenter', () => {
+          if (!_handleLatched) _indicatorHandle.style.fill = '#F6857A';
+        });
+        _indicatorGrab.addEventListener('mouseleave', () => {
+          if (!_handleLatched) _indicatorHandle.style.fill = '#FF4D00';
+        });
+
         indicator.appendChild(_indicatorHandle);
         indicator.appendChild(_indicatorGrab);
       }
@@ -1869,7 +1862,7 @@
 
       const activeDotColor = _handleLatched ? '#FF4D00' : '#000000';
       dots.forEach((dot, i) => {
-        dot.style.fill = (i === closestIdx || i === _hoveredEventIndex) ? activeDotColor : '#ffffff';
+        dot.style.fill = i === closestIdx ? activeDotColor : '#ffffff';
       });
 
       if (closestIdx !== -1) showEventDescription(closestIdx);
