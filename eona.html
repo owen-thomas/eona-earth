@@ -114,7 +114,7 @@
       text-transform: uppercase;
       line-height: 1;
       text-box: trim-both cap alphabetic;
-      color: #aaaaaa;
+      color: #999999;
       white-space: nowrap;
     }
     
@@ -255,8 +255,10 @@
 
     #event-name-suffix {
       font-family: var(--font-mono);
-      font-size: 12px;
-      font-weight: 700;
+      font-size: 10px;
+      font-weight: 400;
+      letter-spacing: 1px;
+      text-transform: uppercase;
       color: var(--accent);
       line-height: 1;
       text-box: trim-both cap alphabetic;
@@ -271,9 +273,11 @@
 
     .info-left .era {
       font-family: var(--font-mono);
-      font-size: 12px;
-      font-weight: 700;
-      color: #aaaaaa;
+      font-size: 10px;
+      font-weight: 400;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      color: #999999;
       line-height: 1;
       text-box: trim-both cap alphabetic;
     }
@@ -287,9 +291,11 @@
 
     .center-timestamp {
       font-family: var(--font-mono);
-      font-size: 12px;
-      font-weight: 700;
-      color: #aaaaaa;
+      font-size: 10px;
+      font-weight: 400;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      color: #999999;
       line-height: 1;
       text-box: trim-both cap alphabetic;
       text-align: center;
@@ -320,9 +326,11 @@
 
     #time-display {
       font-family: var(--font-mono);
-      font-size: 12px;
-      font-weight: 700;
-      color: #aaaaaa;
+      font-size: 10px;
+      font-weight: 400;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      color: #999999;
       line-height: 1;
       text-box: trim-both cap alphabetic;
     }
@@ -341,17 +349,19 @@
     }
 
     .tooltip.visible { opacity: 1; }
-    .tooltip-title { font-family: var(--font-mono); font-size: 0.6em; font-weight: 700; color: #ffffff; margin-bottom: 8px; line-height: 1; text-box: trim-both cap alphabetic; }
+    .tooltip-title { font-family: var(--font-mono); font-size: 0.6em; font-weight: 400; letter-spacing: 1px; text-transform: uppercase; color: #ffffff; margin-bottom: 8px; line-height: 1; text-box: trim-both cap alphabetic; }
     .tooltip-time { font-family: var(--font-mono); font-size: 0.6em; font-weight: 400; color: var(--accent); margin-bottom: 12px; line-height: 1; text-box: trim-both cap alphabetic; }
-    .tooltip-desc { font-family: var(--font-mono); font-size: 0.6em; font-weight: 400; color: #aaaaaa; line-height: 1; text-box: trim-both cap alphabetic; }
+    .tooltip-desc { font-family: var(--font-mono); font-size: 0.6em; font-weight: 400; color: #999999; line-height: 1; text-box: trim-both cap alphabetic; }
 
     /* === Scrubbing === */
 
     .return-to-now {
       display: none;
       font-family: var(--font-mono);
-      font-size: 12px;
+      font-size: 10px;
       font-weight: 400;
+      letter-spacing: 1px;
+      text-transform: uppercase;
       color: #000000;
       background: var(--accent);
       border: none;
@@ -537,14 +547,14 @@
       { name: 'First life', time: 3500, desc: 'Simple single-celled organisms appear in the primordial oceans.' },
       { name: 'Photosynthesis begins', time: 3400, desc: 'Microbes learn to harvest sunlight, slowly changing everything.' },
       { name: 'Oxygen catastrophe', time: 2400, desc: 'Oxygen floods the atmosphere. Most existing life dies. New life thrives.' },
-      { name: 'Complex cells', time: 2100, desc: 'Cells with nuclei appear — the ancestors of all animals and plants.' },
+      { name: 'Complex cells', time: 2100, desc: 'Cells with nuclei appear. The ancestors of all animals and plants.' },
       { name: 'Snowball Earth', time: 717, desc: 'The planet freezes entirely. Ice from pole to equator.' },
-      { name: 'Cambrian explosion', time: 538, desc: 'Life suddenly diversifies. Eyes, shells, predators — everything at once.' },
+      { name: 'Cambrian explosion', time: 538, desc: 'Life suddenly diversifies. Eyes, shells, predators, everything at once.' },
       { name: 'First land plants', time: 470, desc: 'Green life crawls onto the continents.' },
       { name: 'First forests', time: 385, desc: 'Trees rise. The air fills with oxygen. Giant insects follow.' },
       { name: 'Great Dying', time: 252, desc: '90% of species vanish. The worst extinction in Earth\'s history.' },
       { name: 'Dinosaurs rise', time: 230, desc: 'Reptiles inherit the emptied Earth and dominate for 165 million years.' },
-      { name: 'First mammals', time: 225, desc: 'Small, warm-blooded creatures appear — our distant ancestors.' },
+      { name: 'First mammals', time: 225, desc: 'Small, warm-blooded creatures appear. Our distant ancestors.' },
       { name: 'First birds', time: 150, desc: 'Feathered dinosaurs take to the sky.' },
       { name: 'Dinosaurs end', time: 66, desc: 'An asteroid strikes. Darkness falls.<br>The age of reptiles closes.' },
       { name: 'Mammals inherit Earth', time: 55, desc: 'With dinosaurs gone, mammals diversify and grow large.' },
@@ -1769,17 +1779,26 @@
         hitArea.setAttribute('pointer-events', 'all');
         hitArea.setAttribute('class', 'event-hit-area');
         hitArea.setAttribute('data-event-index', index);
-        hitArea.style.cursor = 'pointer';
 
         markers.appendChild(dot);
         hitGroup.appendChild(hitArea);
       });
+
+      // Overlay dot — always last in the group so it paints on top of all others
+      const overlay = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+      overlay.setAttribute('id', 'event-marker-overlay');
+      overlay.setAttribute('r', '2');
+      overlay.setAttribute('pointer-events', 'none');
+      overlay.style.display = 'none';
+      overlay.style.transition = 'fill 0.5s ease';
+      markers.appendChild(overlay);
     }
     
     // Persistent indicator elements — created once so CSS transitions work
     let _indicatorHandle = null;
     let _indicatorGrab = null;
     let _handleLatched = false; // once outline state is triggered in a scrub, stays latched until exitScrub
+    let _handleHovered = false;
 
     function _applyHandleOutline(outlined) {
       if (!_indicatorHandle) return;
@@ -1788,7 +1807,7 @@
         _indicatorHandle.style.stroke = '#ffffff';
         _indicatorHandle.style.strokeWidth = '1px';
       } else {
-        _indicatorHandle.style.fill = '#FF4D00';
+        _indicatorHandle.style.fill = _handleHovered ? '#F6857A' : '#FF4D00';
         _indicatorHandle.style.stroke = 'transparent';
         _indicatorHandle.style.strokeWidth = '1px';
       }
@@ -1818,13 +1837,6 @@
         _indicatorGrab.setAttribute('fill', 'transparent');
         _indicatorGrab.setAttribute('class', 'scrub-handle');
         _indicatorGrab.style.touchAction = 'none';
-
-        _indicatorGrab.addEventListener('mouseenter', () => {
-          if (!_handleLatched) _indicatorHandle.style.fill = '#F6857A';
-        });
-        _indicatorGrab.addEventListener('mouseleave', () => {
-          if (!_handleLatched) _indicatorHandle.style.fill = '#FF4D00';
-        });
 
         indicator.appendChild(_indicatorHandle);
         indicator.appendChild(_indicatorGrab);
@@ -1868,9 +1880,19 @@
       });
 
       const activeDotColor = _handleLatched ? '#FF4D00' : '#000000';
+      const overlay = document.getElementById('event-marker-overlay');
       dots.forEach((dot, i) => {
-        dot.style.fill = i === closestIdx ? activeDotColor : '#ffffff';
+        dot.style.fill = i === closestIdx ? '#000000' : '#ffffff'; // underlying dot always black when active (hidden by overlay)
       });
+      if (closestIdx !== -1) {
+        const activeDot = dots[closestIdx];
+        overlay.setAttribute('cx', activeDot.getAttribute('cx'));
+        overlay.setAttribute('cy', activeDot.getAttribute('cy'));
+        overlay.style.fill = activeDotColor;
+        overlay.style.display = '';
+      } else {
+        overlay.style.display = 'none';
+      }
 
       if (closestIdx !== -1) showEventDescription(closestIdx);
       else hideEventDescription();
@@ -2014,14 +2036,26 @@
         }
       });
       container.addEventListener('mousemove', (e) => {
-        if (e.target.classList.contains('event-hit-area')) {
-          const tooltip = document.getElementById('tooltip');
-          let x = e.clientX + 15, y = e.clientY - 10;
-          if (x + 280 > window.innerWidth) x = e.clientX - 295;
-          if (y + 100 > window.innerHeight) y = e.clientY - 100;
-          if (y < 10) y = 10;
-          tooltip.style.left = x + 'px';
-          tooltip.style.top = y + 'px';
+        if (!_indicatorHandle) return;
+        const persistentSvg = document.getElementById('persistent-layer');
+        const pRect = persistentSvg.getBoundingClientRect();
+        const svgX = (e.clientX - pRect.left) / pRect.width * 400;
+        const svgY = (e.clientY - pRect.top) / pRect.height * 400;
+        const handleMa = scrub.active ? scrub.ma : _currentMa;
+        const handlePos = polarToCartesian(200, 200, 156, maToAngle(handleMa) + 90);
+        const distToHandle = Math.hypot(svgX - handlePos.x, svgY - handlePos.y);
+        const hovering = distToHandle <= 24;
+        if (hovering !== _handleHovered) {
+          _handleHovered = hovering;
+          if (!_handleLatched) _applyHandleOutline(false);
+        }
+        container.style.cursor = hovering ? (scrub.active ? 'grabbing' : 'grab') : '';
+      });
+
+      container.addEventListener('mouseleave', () => {
+        if (_handleHovered) {
+          _handleHovered = false;
+          if (!_handleLatched) _applyHandleOutline(false);
         }
       });
 
@@ -2129,8 +2163,6 @@
       const ROT_GAIN_ROTATE = Math.PI / 180;
 
       container.addEventListener('pointerdown', (e) => {
-        // Ignore event-marker clicks so tooltips still work.
-        if (e.target.classList && e.target.classList.contains('event-hit-area')) return;
         // Only react to primary button.
         if (e.button !== undefined && e.button !== 0) return;
 
@@ -2143,7 +2175,17 @@
         const minR = maxR * 0.08; // dead zone at the very centre
         if (r > maxR || r < minR) return;
 
-        if (e.target.classList && e.target.classList.contains('scrub-handle')) {
+        // Check geometrically whether the click lands within the handle's radius.
+        // e.target is unreliable when hit areas or other elements sit on top of the handle.
+        const persistentSvg = document.getElementById('persistent-layer');
+        const pRect = persistentSvg.getBoundingClientRect();
+        const svgX = (e.clientX - pRect.left) / pRect.width * 400;
+        const svgY = (e.clientY - pRect.top) / pRect.height * 400;
+        const handleMa = scrub.active ? scrub.ma : _currentMa;
+        const handlePos = polarToCartesian(200, 200, 156, maToAngle(handleMa) + 90);
+        const distToHandle = Math.hypot(svgX - handlePos.x, svgY - handlePos.y);
+
+        if (distToHandle <= 24) {
           // Scrub mode
           const ang = pointerAngle(svg, e);
           const startMa = scrub.active ? scrub.ma : (() => {

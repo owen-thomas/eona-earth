@@ -32,6 +32,8 @@ The goal is visceral understanding — not education, but feeling. The "holy shi
 - **Fraunces**: Event descriptions (Regular 16px, line-height 1.3)
 - `-webkit-font-smoothing: antialiased` on body to eliminate subpixel glow on dark backgrounds
 - Most info panel text uses `line-height: 1` + `text-box: trim-both cap alphabetic` for cap-to-baseline vertical trim
+- **Info panel secondary text** (era, time, event name, return-to-now): Space Mono Regular 10px, uppercase, 1px letter-spacing, `#999999`. This is the "mono/regular-xs" scale.
+- **Accent text** (`#years-display`, `#event-name-suffix`): same 10px/regular/uppercase/1px-LS treatment but `#FF4D00`.
 
 ### Vibe
 Cold precision (Nothing/CMF) meets warm illustration (Icinori/Whole Earth). Restrained palette with one strong accent.
@@ -62,9 +64,12 @@ Layers stack bottom-to-top: `#infographic-layer` → `#earth-shadow` → `#earth
   - Returns to **solid orange** (0.5s ease) on `exitScrub()`.
   - `_handleLatched` flag tracks outline state — only set during `scrub.active`, reset in `exitScrub`.
 - **Drag anywhere else** on the clock: rotates the globe only; time stays live.
-- **Return to now** button: exits scrub mode, restores handle to orange, restores minute hand + dot. Styled: Space Mono Regular 0.75em black (`#000000`), sentence case, padding 8px 12px, orange fill (`#FF4D00`), pill shape (`border-radius: 999px`). `display: none` by default; `display: inline-flex` when `body.scrubbing`. `transform: translateY(12px)` to optically centre it with the time text.
+- **Return to now** button: exits scrub mode, restores handle to orange, restores minute hand + dot. Styled: Space Mono Regular 10px uppercase 1px letter-spacing black (`#000000`), padding 8px 12px, orange fill (`#FF4D00`), pill shape (`border-radius: 999px`). `display: none` by default; `display: block` when `body.scrubbing`. `transform: translateY(8px)` to optically centre it with the time text.
 - **`pointer-events: none`** on `.info-panel` — prevents info bar from blocking clock drags. Interactive children (button, toggles) have `pointer-events: auto` selectively re-enabled.
 - Pointer events are on `.clock-container` div (not the SVG) so empty-space drags work reliably.
+- **Scrub handle detection is geometric** — `pointerdown` converts the click to SVG coordinates and checks distance to the handle centre (r=24 on orbit r=156). Does not rely on `e.target` because hit areas in `#event-hit-areas` sit on top of `_indicatorGrab` in the DOM and intercept events.
+- **Grab cursor** is managed on `container.style.cursor` via `mousemove`, using the same geometric distance check. Hit areas have no `cursor` style set so they inherit from the container, ensuring `grab`/`grabbing` always shows over the handle regardless of what element is on top.
+- **Handle hover state**: `#F6857A` when pointer is within r=24 of handle centre and not latched. Tracked via `_handleHovered` flag; applied through `_applyHandleOutline()` to avoid being stomped by per-frame calls.
 - **Scrub time display**: while scrubbing, the time display shows the geological clock time (what the clock hand represents) rather than local time. Time display dims to `#666666` when scrubbing (`body.scrubbing #time-display`). Time tracks handle position continuously across 12/24-hour boundaries.
   - **Cumulative angle tracking**: `scrub.cumulativeAngleDelta` accumulates raw angle delta each frame. `scrub.displayStartSecs` stores the displayed time at drag start (carried forward on re-grab). Displayed time = `displayStartSecs + cumulativeAngleDelta / 360 * 43200`, then `% 86400` to wrap. This allows scrubbing past midnight/noon without getting stuck in a 12-hour window.
   - **`lastAngle` is seeded from `maToAngle(initialMa)`** (the handle's true centre angle) — not the pointer's click position. The click offset is absorbed into the first pointermove delta, keeping handle position and displayed time locked to a single source of truth. Seeding from the pointer angle instead caused up to ~17 min of error per grab (click edge of 24px handle on 156px orbit ≈ 8.7° offset ≈ 17 min), compounding across re-grabs.
@@ -114,6 +119,7 @@ exitScrub()                 // ends scrub session; restores handle to orange, re
 _currentMa          // current geological Ma this frame (set in tick before drawPositionIndicator)
 _activeEventMa      // Ma of the currently active event; null when no event active
 _handleLatched      // true when scrubber handle is in outline state during a scrub session
+_handleHovered      // true when pointer is within r=24 of handle centre; drives hover colour via _applyHandleOutline()
 _hoveredEventIndex  // index of currently hovered event dot (-1 if none)
 ```
 
@@ -361,7 +367,7 @@ For palette details and colour rationale for each state, see **`colour-reference
 ### `#persistent-layer` (non-toggleable — always visible)
 - **`#clock-eon-markers`**: 12 hour ticks, `#666666`, 1px stroke. Inner edge r=160, outer edge r=180. Always visible on all layers.
 - **`#position-indicator`**: Scrubber handle — persistent SVG circle, r=24, orbit r=156. Solid orange (`#FF4D00`) at rest; outline state (transparent fill + 1px white stroke) during scrub. CSS transition `fill 0.5s ease, stroke 0.5s ease`.
-- **`#event-markers`**: Event dots, r=2, orbit r=156. White normally; orange (0.5s ease) when active via scrubber or hover; black when active with handle solid. Shown/hidden with eon layer toggle via `display` style.
+- **`#event-markers`**: Event dots, r=2, orbit r=156. White normally; black when active (hidden behind overlay). Shown/hidden with eon layer toggle via `display` style. Contains `#event-marker-overlay` — a single extra dot always appended last so it paints on top of all others; positioned over the active dot each frame and coloured orange (handle outlined) or black (handle solid). Ensures the active dot is never obscured by a neighbouring dot.
 - **`#event-hit-areas`**: Transparent hit circles r=12, `pointer-events="all"`. Disabled (`pointer-events="none"`) when eon layer is hidden.
 
 ---
@@ -371,11 +377,11 @@ For palette details and colour rationale for each state, see **`colour-reference
 - **Dot states**: white (default) → orange (active, handle outlined) → black (active, handle solid) — 0.5s ease transition
 - **Active zone**: scrubber centre within ±4px of a dot AND within 300 Ma of the event's geological time → that dot activates. The Ma-proximity check prevents the "Earth forms" dot (at 12 o'clock = 4540 Ma) from triggering near end-of-cycle (0 Ma), which maps to the same clock position. Only one active at a time (closest wins).
 - **Overlap zone**: scrubber centre within 24px of any dot → handle enters outline state (latched for duration of scrub).
-- **Hover**: hovering a hit area turns the dot orange and shows the floating tooltip (when eon layer visible).
+- **Hover**: hovering a hit area turns the dot orange. Floating tooltip is disabled (`showTooltip` returns immediately).
 - **Event active in center column**: when an event activates, `#event-name-suffix` appends ` • Event Name` to the timestamp, `#event-desc-center` shows the description above the timestamp row, and `_activeEventMa` is set to the event's time.
   - **Timestamp locking**: `updateDeepTimeDisplay` locks `#years-display` to the event time while `ma >= _activeEventMa` (scrubber approaching or at event). Once `ma < _activeEventMa` (scrubber passes the event toward present), years-display resumes live time — even if the event name/desc are still showing.
   - **Event description**: Fraunces Regular 16px `#ffffff`, line-height 1.3, 300px fixed width, `display: none` → `display: block` via `.visible` class. Positioned above `.center-timestamp` in the flex column (grows upward, timestamp stays pinned to baseline).
-- **Tooltip** (floating, follows cursor): shown on hover only. `#222222` background, Space Mono 0.6em, max-width 250px. Disabled when eon layer hidden.
+- **Tooltip** (floating, follows cursor): currently disabled — `showTooltip` returns immediately. Markup and styles remain in case it's re-enabled. `#222222` background, Space Mono Regular 10px uppercase 1px letter-spacing, max-width 250px.
 
 ---
 
@@ -393,16 +399,16 @@ Fixed bottom bar, `padding: 24px 32px 32px`, flex row space-between, `align-item
 - `images/favicon.png` — browser tab icon (`<link rel="icon">` in `<head>`)
 
 **Left column** (`.info-left`, `flex: 1`):
-- `.era` (`#era-display`): current eon/era name. Space Mono Regular 1em `#aaaaaa`.
+- `.era` (`#era-display`): current eon/era name. Space Mono Regular 10px uppercase 1px letter-spacing `#999999`.
 
 **Centre column** (`.info-center`, flex-column, `align-items: center`, `justify-content: flex-end`, `gap: 16px`, `flex: 1`):
-- `.info-event-name` → `#event-name-suffix`: event name label. Space Mono bold 12px `#FF4D00`. Empty when no event active. Sits 16px above event description via column gap.
+- `.info-event-name` → `#event-name-suffix`: event name label. Space Mono Regular 10px uppercase 1px letter-spacing `#FF4D00`. Empty when no event active. Sits 16px above event description via column gap.
 - `#event-desc-center` (`.center-event-desc`): event description. `display: none` → `display: block` via `.visible`. Fraunces Regular 16px `#ffffff`, line-height 1.3, `text-align: center`, fixed `width: 300px`.
-- `.center-timestamp` (in `.info-bottom` centre): `#years-display` (Space Mono bold 0.75em `#FF4D00`).
+- `.center-timestamp` (in `.info-bottom` centre): `#years-display` (Space Mono Regular 10px uppercase 1px letter-spacing `#FF4D00`).
 
 **Right column** (`.info-right`, flex-row, `align-items: flex-end`, `justify-content: flex-end`, `gap: 16px`, `flex: 1`):
-- `#time-display`: local time. Space Mono Regular 1em `#aaaaaa`. Dims to `#666666` when `body.scrubbing`.
-- `#return-to-now` (`.return-to-now`): 32×32px SVG circle button, `#E34E2A` fill. `display: none` by default; `display: inline-block` when `body.scrubbing`.
+- `#time-display`: local time. Space Mono Regular 10px uppercase 1px letter-spacing `#999999`. Hidden when `body.scrubbing`.
+- `#return-to-now` (`.return-to-now`): pill button, orange fill `#FF4D00`. Space Mono Regular 10px uppercase 1px letter-spacing black. `display: none` by default; `display: block` when `body.scrubbing`.
 
 All Space Mono text: `line-height: 1`, `text-box: trim-both cap alphabetic`.
 
