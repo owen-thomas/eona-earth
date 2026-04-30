@@ -24,8 +24,8 @@
       --text: var(--white);
       --font-mono: 'Space Mono', monospace;
       --font-serif: 'Source Serif 4', Georgia, serif;
-      --clock-size: min(85vmin, 600px);
-      --header-h: 68px; /* header padding (24px) + logo (20px) + padding (24px) */
+      --clock-size: min(calc(100vw - 96px), calc(100vh - 250px), 600px);
+      --header-h: 96px; /* header padding (32px) + logo (16px) + padding (48px) */
       --earth-size: calc(var(--clock-size) * 0.45);
       /* Canvas is 1.25× the visual sphere diameter. The camera is zoomed out
          so the sphere still appears at --earth-size, but has ~12% breathing
@@ -55,7 +55,7 @@
       top: 0;
       left: 0;
       right: 0;
-      padding: 24px 32px;
+      padding: 32px 32px 48px;
       display: flex;
       justify-content: space-between;
       align-items: flex-end;
@@ -381,8 +381,8 @@
     #infographic-layer .scrub-handle { cursor: grab; }
 
     @media (max-width: 600px) {
-      :root { --clock-size: 90vmin; --header-h: 52px; }
-      .header { padding: 16px 20px; }
+      :root { --clock-size: min(calc(100vw - 72px), calc(100vh - 210px)); --header-h: 68px; }
+      .header { padding: 20px 20px 32px; }
       body { padding: var(--header-h) 20px 20px; }
     }
   </style>
@@ -390,7 +390,7 @@
 <body>
   <header class="header">
     <div class="header-left">
-      <div class="title"><img src="images/logo.svg" alt="Eona.Earth" width="86" height="20"></div>
+      <div class="title"><img src="images/logo.svg" alt="Eona.Earth" width="69" height="16"></div>
     </div>
     <div class="header-right">
       <div class="layers-control">
@@ -573,6 +573,13 @@
     }
     
     function formatMa(ma) {
+      const mobile = window.matchMedia('(max-width: 600px)').matches;
+      if (mobile) {
+        if (ma >= 1000) return `${(ma / 1000).toFixed(2)} Ga`;
+        if (ma >= 1) return `${ma.toFixed(1)} Ma`;
+        if (ma >= 0.001) return `${(ma * 1000).toFixed(0)} ka`;
+        return 'Now';
+      }
       if (ma >= 1000) return `${(ma / 1000).toFixed(2)} billion years ago`;
       if (ma >= 1) return `${ma.toFixed(1)} million years ago`;
       if (ma >= 0.001) return `${(ma * 1000).toFixed(0)} thousand years ago`;
