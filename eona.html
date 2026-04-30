@@ -57,7 +57,7 @@
       padding: 24px 32px;
       display: flex;
       justify-content: space-between;
-      align-items: flex-start;
+      align-items: flex-end;
       z-index: 100;
     }
     
@@ -67,37 +67,27 @@
     /* l:  24px */
 
     .title {
-      font-family: var(--font-mono);
-      font-size: 12px;
-      font-weight: 700;
-      color: #ffffff;
-      line-height: 1;
-      text-box: trim-both cap alphabetic;
-    }
-    .title {
-      height: 32px;
       display: flex;
-      align-items: center;
+      align-items: flex-end;
     }
     .title img { display: block; }
 
-    .header-left { flex: 1; display: flex; align-items: flex-start; }
-    .header-center { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 24px; }
-    .header-right { flex: 1; display: flex; justify-content: flex-end; align-items: flex-start; }
+    .header-left { flex: 1; display: flex; align-items: flex-end; }
+    .header-right { flex: 1; display: flex; flex-direction: row; align-items: flex-end; justify-content: flex-end; gap: 24px; }
 
     /* === Layers control === */
     .layers-control {
       display: flex;
-      flex-direction: column;
-      align-items: flex-start;
-      position: relative;
+      flex-direction: row;
+      align-items: center;
+      gap: 24px;
     }
 
-    .layers-btn {
+    .toggle {
       display: flex;
-      flex-direction: column;
-      align-items: flex-start;
-      gap: 8px;
+      flex-direction: row;
+      align-items: center;
+      gap: 4px;
       background: none;
       border: none;
       cursor: pointer;
@@ -105,52 +95,15 @@
       pointer-events: auto;
     }
 
-    .layers-icon-slot {
-      display: flex;
-      align-self: center;
+    .toggle-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #666666;
+      flex-shrink: 0;
     }
 
-    .layers-btn.wide-icon .layers-icon-slot {
-      margin-left: -2.5px;
-    }
-
-    .layers-label {
-      font-family: var(--font-mono);
-      font-size: 10px;
-      letter-spacing: 1px;
-      text-transform: uppercase;
-      color: #ffffff;
-      line-height: 1;
-      text-box: trim-both cap alphabetic;
-      white-space: nowrap;
-    }
-    .layers-btn.active .layers-label { display: none; }
-
-    .layers-tree {
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-      position: absolute;
-      top: calc(100% + 12px);
-      left: 0;
-    }
-
-    /* padding-left: 4px = 12px original offset − 8px nudge applied to hover/active icon above */
-    .toggle {
-      display: flex;
-      flex-direction: row;
-      align-items: center;
-      gap: 8px;
-      padding-left: 9.5px;
-      background: none;
-      border: none;
-      cursor: pointer;
-      pointer-events: auto;
-    }
-
-    .toggle-icon-slot {
-      display: flex;
-    }
+    .toggle.active .toggle-dot { background: #FF4D00; }
 
     .toggle-label {
       font-family: var(--font-mono);
@@ -159,10 +112,9 @@
       text-transform: uppercase;
       line-height: 1;
       text-box: trim-both cap alphabetic;
-      color: #666666;
+      color: #aaaaaa;
       white-space: nowrap;
     }
-    .toggle.active .toggle-label { color: #E34E2A; }
     
     .clock-container {
       position: relative;
@@ -366,16 +318,18 @@
       flex-direction: column;
       align-items: flex-end;
       justify-content: flex-end;
+      gap: 8px;
     }
 
     #time-display {
       font-family: var(--font-mono);
-      font-size: 16px;
+      font-size: 12px;
       font-weight: 400;
-      color: #666666;
+      color: #aaaaaa;
       line-height: 1;
       text-box: trim-both cap alphabetic;
     }
+    body.scrubbing #time-display { color: #666666; }
     
     .tooltip {
       position: fixed;
@@ -441,48 +395,29 @@
     @media (max-width: 600px) {
       :root { --clock-size: 90vmin; }
       .header, .info-panel { padding: 16px 20px; }
-      .header-center { gap: 16px; }
-      #time-display { font-size: 16px; }
     }
   </style>
 </head>
 <body>
   <header class="header">
     <div class="header-left">
-      <div class="layers-control">
-        <button class="layers-btn" id="layers-btn">
-          <div class="layers-icon-slot">
-            <img id="layers-icon" src="images/layers-default.svg" alt="">
-          </div>
-          <span class="layers-label">Layers</span>
-        </button>
-        <div class="layers-tree" id="layers-tree" style="display: none">
-          <button class="toggle active" data-layer="earth">
-            <div class="toggle-icon-slot">
-              <img class="toggle-icon" src="images/earth-active.svg" data-active="images/earth-active.svg" data-inactive="images/earth-inactive.svg" alt="">
-            </div>
-            <span class="toggle-label">Earth</span>
-          </button>
-          <button class="toggle active" data-layer="infographic">
-            <div class="toggle-icon-slot">
-              <img class="toggle-icon" src="images/eons-active.svg" data-active="images/eons-active.svg" data-inactive="images/eons-inactive.svg" alt="">
-            </div>
-            <span class="toggle-label">Eons</span>
-          </button>
-          <button class="toggle active" data-layer="clock">
-            <div class="toggle-icon-slot">
-              <img class="toggle-icon" src="images/clock-active.svg" data-active="images/clock-active.svg" data-inactive="images/clock-inactive.svg" alt="">
-            </div>
-            <span class="toggle-label">Clock</span>
-          </button>
-        </div>
-      </div>
-    </div>
-    <div class="header-center">
       <div class="title"><img src="images/logo.svg" alt="Eona.Earth" width="86" height="20"></div>
-      <span id="time-display">00:00:00</span>
     </div>
     <div class="header-right">
+      <div class="layers-control">
+        <button class="toggle active" data-layer="earth">
+          <span class="toggle-dot"></span>
+          <span class="toggle-label">Earth</span>
+        </button>
+        <button class="toggle active" data-layer="infographic">
+          <span class="toggle-dot"></span>
+          <span class="toggle-label">Eons</span>
+        </button>
+        <button class="toggle active" data-layer="clock">
+          <span class="toggle-dot"></span>
+          <span class="toggle-label">Clock</span>
+        </button>
+      </div>
       <div class="return-wrapper">
         <svg id="return-to-now" class="return-to-now" role="button" tabindex="0" aria-label="Return to now" width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
           <rect width="32" height="32" rx="16" fill="#E34E2A"/>
@@ -559,6 +494,7 @@
         <div class="era" id="era-display">Hadean Eon</div>
       </div>
       <div class="info-right">
+        <span id="time-display">00:00:00</span>
         <div class="center-timestamp"><span id="years-display">4.5 billion years ago</span></div>
       </div>
     </div>
@@ -2022,37 +1958,12 @@
     
     // === TOGGLES & EVENTS ===
     function setupToggles() {
-      // Layers button — toggles tree visibility + swaps icon on hover/click
-      const layersBtn  = document.getElementById('layers-btn');
-      const layersIcon = document.getElementById('layers-icon');
-      const layersTree = document.getElementById('layers-tree');
-      let layersOpen = false;
-
-      layersBtn.addEventListener('mouseenter', () => {
-        layersIcon.src = layersOpen ? 'images/active-hover.svg' : 'images/layers-hover.svg';
-        layersBtn.classList.add('wide-icon');
-      });
-      layersBtn.addEventListener('mouseleave', () => {
-        layersIcon.src = layersOpen ? 'images/layers-active.svg' : 'images/layers-default.svg';
-        layersBtn.classList.toggle('wide-icon', layersOpen);
-      });
-      layersBtn.addEventListener('click', () => {
-        layersOpen = !layersOpen;
-        layersBtn.classList.toggle('active', layersOpen);
-        layersBtn.classList.toggle('wide-icon', layersOpen);
-        layersTree.style.display = layersOpen ? '' : 'none';
-        layersIcon.src = layersOpen ? 'images/layers-active.svg' : 'images/layers-default.svg';
-      });
-
-      // Individual layer toggles — swap SVG icon + toggle layer visibility
+      // Layer toggles — toggle layer visibility
       document.querySelectorAll('.toggle').forEach(toggle => {
         toggle.addEventListener('click', () => {
           const layer = toggle.dataset.layer;
           toggle.classList.toggle('active');
           const isActive = toggle.classList.contains('active');
-
-          const icon = toggle.querySelector('.toggle-icon');
-          if (icon) icon.src = isActive ? icon.dataset.active : icon.dataset.inactive;
 
           const layerEl = document.getElementById(`${layer}-layer`);
           if (layerEl) layerEl.classList.toggle('hidden');
