@@ -772,9 +772,9 @@
         glowStrength: 0.0,
         hazeColor: '#4ECDC4', hazeOpacity: 0.33,
         darkHazeColor: '#0D111A', darkHazeOpacity: 0.20,
-        cloudDensity: 0.25, cloudShape: 0.00, polarIce: 0.0, seed: 4.7,
+        cloudDensity: 0.00, cloudShape: 0.00, polarIce: 0.0, seed: 4.7,
         useLandSea: 0.0, coastSoftness: 0.01,
-        surfaceApproach: 'screenprint', cloudApproach: 'warped' },
+        surfaceApproach: 'screenprint', cloudApproach: 'warped_layers' },
 
       // === 06 · Huronian Snowball — 2300–2100 Ma ===
       { name: 'Huronian snowball',
@@ -796,7 +796,7 @@
         glowStrength: 0.0,
         hazeColor: '#A8A891', hazeOpacity: 0.26,
         darkHazeColor: '#1D1D1B', darkHazeOpacity: 0.23,
-        cloudDensity: 0.40, cloudShape: 0.00, polarIce: 0.0, seed: 6.0,
+        cloudDensity: 0.00, cloudShape: 0.00, polarIce: 0.0, seed: 6.0,
         useLandSea: 0.0, coastSoftness: 0.01,
         surfaceApproach: 'screenprint', cloudApproach: 'warped' },
 
@@ -820,31 +820,31 @@
         glowStrength: 0.0,
         hazeColor: '#747D85', hazeOpacity: 0.35,
         darkHazeColor: '#1E1F21', darkHazeOpacity: 0.23,
-        cloudDensity: 0.40, cloudShape: 0.00, polarIce: 0.0, seed: 6.0,
+        cloudDensity: 0.00, cloudShape: 0.00, polarIce: 0.0, seed: 6.0,
         useLandSea: 0.0, coastSoftness: 0.01,
-        surfaceApproach: 'screenprint', cloudApproach: 'warped' },
+        surfaceApproach: 'screenprint', cloudApproach: 'warped_layers' },
 
       // === 10 · Cryogenian Snowball — 720–635 Ma ===
       { name: 'Cryogenian snowball',
         span: [720, 635], blendStart: 637,
-        palette: ['#EEF4F7','#98C1D9','#C7EDEF','#E0FBFC','#0A1428'],
+        palette: ['#CBDDE7','#98C1D9','#C7EDEF','#E0FBFC','#0A1428'],
         noiseThresh1: 0.50, noiseThresh2: 0.65, surfaceIntensity: 0.28,
         glowStrength: 0.0,
         hazeColor: '#E0FAFF', hazeOpacity: 0.48,
         darkHazeColor: '#151821', darkHazeOpacity: 0.33,
-        cloudDensity: 0.43, cloudShape: 0.00, polarIce: 0.0, seed: 7.3,
+        cloudDensity: 0.70, cloudShape: 1.00, polarIce: 0.0, seed: 7.3,
         useLandSea: 0.35, coastSoftness: 0.01,
-        surfaceApproach: 'screenprint', cloudApproach: 'warped' },
+        surfaceApproach: 'screenprint', cloudApproach: 'warped_wisps' },
 
       // === 11 · Hothouse World — 635–400 Ma ===
       { name: 'Hothouse world',
-        span: [635, 400], blendStart: 470,
+        span: [635, 400], blendStart: 635,
         palette: ['#F2E8CF','#4F8D5C','#006831','#004B23','#032832'],
         noiseThresh1: 0.46, noiseThresh2: 0.56, surfaceIntensity: 0.78,
         glowStrength: 0.0,
         hazeColor: '#95D5B2', hazeOpacity: 0.45,
         darkHazeColor: '#08140D', darkHazeOpacity: 0.28,
-        cloudDensity: 0.56, cloudShape: 0.45, polarIce: 0.0, seed: 8.4,
+        cloudDensity: 0.00, cloudShape: 0.45, polarIce: 0.0, seed: 8.4,
         useLandSea: 1.0, coastSoftness: 0.01,
         surfaceApproach: 'screenprint', cloudApproach: 'warped_wisps' },
 
@@ -856,7 +856,7 @@
         glowStrength: 0.0,
         hazeColor: '#74C69D', hazeOpacity: 0.30,
         darkHazeColor: '#051208', darkHazeOpacity: 0.20,
-        cloudDensity: 0.46, cloudShape: 0.50, polarIce: 0.0, seed: 9.1,
+        cloudDensity: 0.56, cloudShape: 0.50, polarIce: 0.0, seed: 9.1,
         useLandSea: 1.0, coastSoftness: 0.01,
         surfaceApproach: 'screenprint', cloudApproach: 'warped_wisps' },
 
@@ -1539,7 +1539,7 @@
       const hr = Math.round((hA[0] + (hB[0] - hA[0]) * t) * 255);
       const hg = Math.round((hA[1] + (hB[1] - hA[1]) * t) * 255);
       const hb = Math.round((hA[2] + (hB[2] - hA[2]) * t) * 255);
-      hazeEl.style.background = `radial-gradient(circle closest-side at center, rgba(${hr},${hg},${hb},0) 50%, rgba(${hr},${hg},${hb},1) 100%)`;
+      hazeEl.style.background = `radial-gradient(circle closest-side at center, rgba(${hr},${hg},${hb},0) 0%, rgba(${hr},${hg},${hb},1) 100%)`;
       hazeEl.style.opacity = hazeOp.toFixed(3);
 
       // === DARK HAZE LAYER ===
@@ -1559,19 +1559,25 @@
       // fraction: 0 at midnight (full coverage), 1 at end of day (no coverage)
       const hourDeg = Math.max(0, Math.min(360, ((EARTH_AGE - ma) / EARTH_AGE) * 360));
       const FADE_DEG = 22.5; // arc width ≈ 20% of sphere diameter at the rim
+      const radialBg = `radial-gradient(circle closest-side at center, rgba(${dr},${dg},${db},0) 0%, rgba(${dr},${dg},${db},1) 100%)`;
       if (dOp < 0.005 || hourDeg >= 360) {
         darkHazeEl.style.opacity = '0';
       } else if (hourDeg <= 0) {
-        darkHazeEl.style.background = `rgba(${dr},${dg},${db},1)`;
+        darkHazeEl.style.background = radialBg;
+        darkHazeEl.style.webkitMaskImage = 'none';
+        darkHazeEl.style.maskImage = 'none';
         darkHazeEl.style.opacity = dOp.toFixed(3);
       } else {
         const fadeStart = Math.max(0, hourDeg - FADE_DEG);
-        darkHazeEl.style.background =
+        const conicMask =
           `conic-gradient(from 0deg at center, ` +
           `transparent 0deg, ` +
           `transparent ${fadeStart.toFixed(2)}deg, ` +
-          `rgba(${dr},${dg},${db},1) ${hourDeg.toFixed(2)}deg, ` +
-          `rgba(${dr},${dg},${db},1) 360deg)`;
+          `black ${hourDeg.toFixed(2)}deg, ` +
+          `black 360deg)`;
+        darkHazeEl.style.background = radialBg;
+        darkHazeEl.style.webkitMaskImage = conicMask;
+        darkHazeEl.style.maskImage = conicMask;
         darkHazeEl.style.opacity = dOp.toFixed(3);
       }
 
