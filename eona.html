@@ -2302,7 +2302,20 @@
     }
     
     // === MAIN LOOP ===
+    const TARGET_FPS = 15;
+    const FRAME_BUDGET = 1000 / TARGET_FPS;  // ms
     let lastTime = performance.now();
+    let loopPaused = false;
+
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) {
+        loopPaused = true;
+      } else {
+        loopPaused = false;
+        lastTime = performance.now();  // prevent a large deltaTime spike on resume
+        requestAnimationFrame(tick);
+      }
+    });
 
     // Scrub state: when active, `ma` is driven by the user dragging the position
     // indicator instead of by the real clock. While active, autorotation is
@@ -2321,7 +2334,9 @@
     const rotateOnly = { active: false };
 
     function tick() {
+      if (loopPaused) return;
       const now = performance.now();
+      if (now - lastTime < FRAME_BUDGET) { requestAnimationFrame(tick); return; }
       const deltaTime = (now - lastTime) / 1000;
       lastTime = now;
 
