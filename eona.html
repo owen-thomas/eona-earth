@@ -59,6 +59,8 @@
       font-family: var(--font-mono);
       -webkit-font-smoothing: antialiased;
       -moz-osx-font-smoothing: grayscale;
+      -webkit-user-select: none;
+      user-select: none;
       display: flex;
       flex-direction: column;
       align-items: center;
@@ -253,7 +255,7 @@
       display: flex;
       flex-direction: column;
       align-items: center;
-      justify-content: center;
+      justify-content: flex-start;
       gap: 16px;
       min-height: 64px;
     }
@@ -562,7 +564,8 @@
     const EVENTS = [
       { name: 'Earth forms', time: 4540, desc: 'Our planet coalesces from dust and gas around the young Sun.' },
       { name: 'Moon forms', time: 4500, desc: 'A Mars-sized body collides with Earth. The debris becomes our Moon.' },
-      { name: 'First oceans', time: 4000, desc: 'The sky falls as rain for millennia.<br>The first oceans form.' },
+      { name: 'Surface solidifies', time: 4400, desc: 'The magma ocean cools.<br>Rain falls for the first time.' },
+      { name: 'First oceans', time: 4100, desc: 'The sky falls as rain for millennia.<br>The first oceans form.' },
       { name: 'Late Heavy Bombardment', time: 3900, desc: 'Ancient asteroids crater the Earth.<br>The oceans boil and re-condense.' },
       { name: 'First life', time: 3500, desc: 'Simple single-celled organisms appear in the primordial oceans.' },
       { name: 'Photosynthesis begins', time: 3400, desc: 'Microbes learn to harvest sunlight, slowly changing everything.' },
@@ -571,7 +574,7 @@
       { name: 'Huronian Snowball', time: 2300, desc: 'The planet freezes. Ice covers Earth for 300 million years.' },
       { name: 'Complex cells', time: 2100, desc: 'Cells with nuclei appear. The ancestors of all animals and plants.' },
       { name: 'Multicellular life', time: 1200, desc: 'Cells learn to cooperate.<br>The body is invented.' },
-      { name: 'Snowball Earth', time: 717, desc: 'The planet freezes entirely.<br>Ice from pole to equator.' },
+      { name: 'Cryogenian Snowball', time: 717, desc: 'The planet freezes entirely.<br>Ice from pole to equator.' },
       { name: 'First animals', time: 575, desc: 'Soft-bodied creatures blanket the seafloor. Nothing like them exists today.' },
       { name: 'Cambrian explosion', time: 538, desc: 'Life suddenly diversifies. Eyes, shells, predators, everything at once.' },
       { name: 'First fish', time: 520, desc: 'The first backboned creatures appear. Our earliest ancestors.' },
@@ -703,9 +706,9 @@
     }
 
     const STATES = [
-      // === 01 · Molten Hadean (early) — 4540–4420 Ma ===
+      // === 01 · Molten Hadean (early) — 4540–4470 Ma ===
       { name: 'Molten Hadean (early)',
-        span: [4540, 4420], blendStart: 4540,
+        span: [4540, 4470], blendStart: 4540,
         palette: ['#2D2D2D','#E34E2A','#3C0E04','#8F220F','#1E0F01'],
         noiseThresh1: 0.80, noiseThresh2: 0.00, surfaceIntensity: 0.77,
         glowColor: '#8F220F', glowStrength: 0.80,
@@ -715,9 +718,9 @@
         useLandSea: 0.0, coastSoftness: 0.01,
         surfaceApproach: 'topographic', cloudApproach: 'warped_layers' },
 
-      // === 01 · Molten Hadean (late) — 4420–4300 Ma ===
+      // === 01 · Molten Hadean (late) — 4470–4400 Ma ===
       { name: 'Molten Hadean (late)',
-        span: [4420, 4300], blendStart: 4320,
+        span: [4470, 4400], blendStart: 4420,
         palette: ['#2D2D2D','#E34E2A','#3C0E04','#8F220F','#1E0F01'],
         noiseThresh1: 0.00, noiseThresh2: 0.80, surfaceIntensity: 1.00,
         glowColor: '#8F220F', glowStrength: 0.55,
@@ -727,9 +730,9 @@
         useLandSea: 0.0, coastSoftness: 0.01,
         surfaceApproach: 'topographic', cloudApproach: 'warped_layers' },
 
-      // === 02 · Steam World — 4300–4000 Ma ===
+      // === 02 · Steam World — 4400–4000 Ma ===
       { name: 'Steam world',
-        span: [4300, 4000], blendStart: 4060,
+        span: [4400, 4000], blendStart: 4060,
         palette: ['#E8D9C5','#8B5E3C','#636363','#3D3D3D','#0D1611'],
         noiseThresh1: 0.45, noiseThresh2: 0.59, surfaceIntensity: 0.65,
         glowColor: '#8F220F', glowStrength: 0.20,
@@ -2252,8 +2255,25 @@
         scrub.lastAngle = ang;
 
         if (mode === 'scrub') {
-          scrub.ma = angleToMa(ang);
-          scrub.cumulativeAngleDelta += delta;
+          const rawMa = angleToMa(ang);
+
+          // Snap to event markers when within ~4px (18 Ma at orbit r=156)
+          const SNAP_MA = 18;
+          let snapMa = null, snapDist = Infinity;
+          EVENTS.forEach(ev => {
+            const d = Math.abs(ev.time - rawMa);
+            if (d < SNAP_MA && d < 300 && d < snapDist) { snapDist = d; snapMa = ev.time; }
+          });
+
+          if (snapMa !== null) {
+            scrub.ma = snapMa;
+            const snappedAngle = maToAngle(snapMa);
+            scrub.cumulativeAngleDelta += delta + shortestAngleDelta(ang, snappedAngle);
+            scrub.lastAngle = snappedAngle;
+          } else {
+            scrub.ma = rawMa;
+            scrub.cumulativeAngleDelta += delta;
+          }
           scrub.rotationOffset -= delta * ROT_GAIN_SCRUB;
         } else if (mode === 'rotate') {
           scrub.rotationOffset -= delta * ROT_GAIN_ROTATE;
