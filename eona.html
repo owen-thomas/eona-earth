@@ -1345,6 +1345,11 @@
         // Radial edge fade toward c4.
         col = mix(col, c4, pow(centerDist, 1.6) * 0.85);
 
+        // Screen-space grain — riso/print texture on the globe surface.
+        // grain() returns [0,1]; remap to [-1,1] and scale to strength.
+        float g = grain(gl_FragCoord.xy, 1.0) * 2.0 - 1.0;
+        col = clamp(col + g * 0.04, 0.0, 1.0);
+
         float alpha = 1.0 - smoothstep(0.97, 1.0, centerDist);
         gl_FragColor = vec4(col, alpha);
       }
