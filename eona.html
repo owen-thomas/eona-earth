@@ -37,7 +37,7 @@
       --grey-600: #333333;
       --grey-700: #222222;
       --grey-800: #1a1a1a;
-      --accent: #FF4D00;
+      --accent: #E34E2A;
       --bg: var(--black);
       --text: var(--white);
       --font-mono: 'Space Mono', monospace;
@@ -124,12 +124,13 @@
       flex-shrink: 0;
     }
 
-    .toggle.active .toggle-dot { background: #FF4D00; transition: background 0.2s ease; }
-    .toggle.active:hover .toggle-dot { background: #F6857A; }
+    .toggle.active .toggle-dot { background: #E34E2A; transition: background 0.2s ease; }
+    .toggle.active:hover .toggle-dot { background: #F78678; }
 
     .toggle-label {
       font-family: var(--font-mono);
       font-size: 10px;
+      font-weight: 700;
       letter-spacing: 1px;
       text-transform: uppercase;
       line-height: 1;
@@ -277,7 +278,7 @@
     #event-name-suffix {
       font-family: var(--font-mono);
       font-size: 10px;
-      font-weight: 400;
+      font-weight: 700;
       letter-spacing: 1px;
       text-transform: uppercase;
       color: var(--accent);
@@ -295,7 +296,7 @@
     .info-left .era {
       font-family: var(--font-mono);
       font-size: 10px;
-      font-weight: 400;
+      font-weight: 700;
       letter-spacing: 1px;
       text-transform: uppercase;
       color: #999999;
@@ -313,7 +314,7 @@
     .center-timestamp {
       font-family: var(--font-mono);
       font-size: 10px;
-      font-weight: 400;
+      font-weight: 700;
       letter-spacing: 1px;
       text-transform: uppercase;
       color: #999999;
@@ -348,7 +349,7 @@
     #time-display {
       font-family: var(--font-mono);
       font-size: 10px;
-      font-weight: 400;
+      font-weight: 700;
       letter-spacing: 1px;
       text-transform: uppercase;
       color: #999999;
@@ -397,7 +398,7 @@
       transform: translateY(8px);
       transition: background 0.2s ease;
     }
-    .return-to-now:hover { background: #F6857A; }
+    .return-to-now:hover { background: #F78678; }
     body.scrubbing .return-to-now { display: block; }
 
     /* Cursor cue DURING AN ACTIVE DRAG ONLY. We can't gate this on
@@ -1851,7 +1852,7 @@
         _indicatorHandle.style.stroke = '#ffffff';
         _indicatorHandle.style.strokeWidth = '1px';
       } else {
-        _indicatorHandle.style.fill = _handleHovered ? '#F6857A' : '#FF4D00';
+        _indicatorHandle.style.fill = _handleHovered ? '#F78678' : '#E34E2A';
         _indicatorHandle.style.stroke = 'transparent';
         _indicatorHandle.style.strokeWidth = '1px';
       }
@@ -1872,7 +1873,7 @@
         _indicatorHandle.setAttribute('r', '24');
         _indicatorHandle.setAttribute('pointer-events', 'none');
         _indicatorHandle.style.transition = 'fill 0.5s ease, stroke 0.5s ease';
-        _indicatorHandle.style.fill = '#FF4D00';
+        _indicatorHandle.style.fill = '#E34E2A';
         _indicatorHandle.style.stroke = 'transparent';
         _indicatorHandle.style.strokeWidth = '1px';
 
@@ -1923,7 +1924,7 @@
         }
       });
 
-      const activeDotColor = _handleLatched ? '#FF4D00' : '#000000';
+      const activeDotColor = _handleLatched ? '#E34E2A' : '#000000';
       const overlay = document.getElementById('event-marker-overlay');
       dots.forEach((dot, i) => {
         dot.style.fill = i === closestIdx ? '#000000' : '#ffffff'; // underlying dot always black when active (hidden by overlay)
