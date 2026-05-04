@@ -513,27 +513,14 @@ Unified per-phase editor for palette, shader approach, haze, and render paramete
 ## Future Directions
 
 ### Backlog
-- [x] Phase colour review pass — all 15 states tuned in `colour-lab.html`, exported via `palette-js.md`
-- [x] Finalise surface approach per phase — topographic for Hadean, watercolor for Steam World, screenprint for everything else
-- [x] Finalise cloud approach per phase — warped_layers for early/thick atmospheres, warped for transitional states, warped_wisps for post-snowball
-- [x] Finalise haze colours per phase — tuned per-state in colour lab, applied to production
-- [x] Implement multi-approach uber-shader — renderSurface + computeCloudMask branch on per-state uniforms
-- [ ] Visual QA pass on approach transitions — verify Hadean→Steam World (topographic→watercolor) and Steam World→Archean (watercolor→screenprint) dual-render cross-fades look correct in production
-- [ ] Noise on scrubber handle (multi, 0.5, 15% opacity)
-- [ ] Eon/era labels on rings
-- [ ] Mobile touch optimisation (tap for tooltips)
-- [ ] "Humans in the last second" callout
-- [ ] Watch app / mobile app
+- [ ] Future Earth projection — second 12-hour period covering the remaining lifespan of the planet
+- [ ] Eon/era labels on rings — curved text along eon pie slices in infographic layer
 - [ ] Sound design
+- [ ] Watch app / mobile app
 
 ### Data Sources
 - Paleogeographic SDFs: Scotese PaleoMAP via `typpo/ancient-earth` (GitHub), CC-BY
 - ICS stratigraphic data: `github.com/TobbeTripitaka/strat2file`
 
 ### Project Files
-- `palette-js.md` — colour-lab export of all 15 states' tuned values (palette, haze, thresholds, approaches). The authoritative source for STATES data; if values need re-tuning, update here first, then re-apply.
-- `implement_palette.py` — Python script that applies `palette-js.md` values to `eona.html`. Adds the uber-shader architecture (ridged noise functions, multi-approach branching, approach uniforms) and replaces all STATES entries. Re-runnable: takes a stock `eona.html` and outputs the patched version.
-- `colour-reference.md` — human-readable documentation of each phase's palette rationale and colour slot roles.
 - `colour-lab.html` — interactive per-phase editor for palette, shader approach, haze, and render parameters.
-- `cloud-compare.html` — side-by-side cloud approach comparison (4 globes).
-- `surface-compare.html` — side-by-side surface approach comparison (5 globes).
