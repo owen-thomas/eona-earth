@@ -513,7 +513,10 @@ Unified per-phase editor for palette, shader approach, haze, and render paramete
 ## Future Directions
 
 ### Backlog
+- [ ] Keyboard navigation to jump between events
+- [ ] Scrub without spinning the globe to observe continental drift
 - [ ] Future Earth projection — second 12-hour period covering the remaining lifespan of the planet
+- [ ] Physical build using a Waveshare display and a Raspberry Pi 4
 - [ ] Eon/era labels on rings — curved text along eon pie slices in infographic layer
 - [ ] Sound design
 - [ ] Watch app / mobile app
