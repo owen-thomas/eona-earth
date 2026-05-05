@@ -4,7 +4,7 @@ A website that maps Earth's 4.5 billion year history onto a 12-hour clock. Midni
 
 ## Concept
 
-The clock runs on local time. When you look at it at 10:34, you're seeing the Cambrian explosion. At 11:39, the dinosaurs go extinct. Humans appear 2.85 seconds before noon/midnight.
+The clock runs on local time. When you look at it at 10:34, you're seeing the Cambrian explosion. At 11:39, the dinosaurs go extinct. Humans appear within the last 3 seconds before noon/midnight.
 
 The goal is visceral understanding — not education, but feeling. The "holy shit" moment when abstraction clicks into physical intuition.
 
@@ -170,7 +170,7 @@ Calibrated threshold values for common land ratios (t1=0.50 for equal c2/c3 spli
 - 44/56 land: `t2=0.56, t1=0.46` (default for SDF phases)
 - 60/40 land: `t2=0.40, t1=0.25` (Hadean — old screenprint values)
 
-⚠️ These thresholds assume **fbm noise** (screenprint / watercolor approaches). The **topographic approach** uses `ridgedFbm`, which has a different output distribution (skewed toward 1.0). Hadean states now use topographic with `t1=0.80, t2=0.79` — these high values are correct for ridged noise but would make land invisible on screenprint. When changing a state's surfaceApproach, re-tune thresholds in the colour lab.
+⚠️ These thresholds assume **fbm noise** (screenprint / watercolor approaches). The **topographic approach** uses `ridgedFbm`, which has a different output distribution (skewed toward 1.0). Hadean phases now use topographic with `t1=0.80, t2=0.79` — these high values are correct for ridged noise but would make land invisible on screenprint. When changing a phase's surfaceApproach, re-tune thresholds in the colour lab.
 
 ⚠️ Do not use `t2 > 0.70` for **screenprint/watercolor** phases — land becomes invisible as the fbm distribution thins out above ~0.75.
 
@@ -191,12 +191,12 @@ Clouds are rendered in a separate pass from the surface using `computeCloudMask(
 - Subtle opacity pulse: `mask *= 1.0 + 0.05 * sin(time * 0.18)` (~35s period)
 - Crisp edges: smoothstep width 0.04–0.06 depending on approach
 
-**Hadean states** keep `cloudDensity: 0.00` — no atmosphere renders there regardless of `CLOUDS_ENABLED`.
+**Hadean phases** keep `cloudDensity: 0.00` — no atmosphere renders there regardless of `CLOUDS_ENABLED`.
 
 ### Surface Approach System
 Surface rendering is selected per-state via `surfaceApproach` field. The uber-shader branches on a float uniform (`aSurfApproach` / `bSurfApproach`):
 
-- **screenprint** (0.0) — two fbm layers, narrow smoothstep (0.04). Hard-edged registered ink zones. The Icinori riso aesthetic. Default for most states. All SDF-era states must use screenprint (the data-driven land/sea path only applies screenprint noise for modulation).
+- **screenprint** (0.0) — two fbm layers, narrow smoothstep (0.04). Hard-edged registered ink zones. The Icinori riso aesthetic. Default for most phases. All SDF-era phases must use screenprint (the data-driven land/sea path only applies screenprint noise for modulation).
 - **watercolor** (1.0) — domain-warped fbm, wide smoothstep (0.18). Colour zones bleed into each other. Soft, organic. Used for: Steam World.
 - **topographic** (2.0) — ridged multifractal with contour-line character. Bright creases where noise folds. Requires `ridgedFbm()`. Used for: Molten Hadean (early + late).
 
@@ -210,7 +210,7 @@ const CLOUD_APPROACH_ID = { warped: 0.0, ridged_wisps: 1.0, warped_layers: 2.0, 
 ### Atmospheric Glow
 Applied as a CSS `filter: drop-shadow()` on `#earth-layer` each frame via `updateEarth()`. Two stacked shadows (tight core + soft halo) are used for a hot-core feel. Strength and colour are interpolated between STATES A and B alongside the surface blend. Set `glowStrength: 0` on states with no glow.
 
-**States with glow currently:** Molten Hadean early (0.80), late (0.55), Steam World (0.20 — residual cherry red fading to 0). All other states: 0.0.
+**Phases with glow currently:** Molten Hadean early (0.80), late (0.55), Steam World (0.20 — residual cherry red fading to 0). All other phases: 0.0.
 
 ### Atmospheric Haze Layer
 A CSS `#haze-layer` div sits above the WebGL canvas. Each frame `updateEarth()` sets its background to a radial gradient and its opacity to the interpolated per-state value. Visibility is tied to `#earth-layer` — hidden when earth layer is toggled off.
@@ -320,7 +320,7 @@ Each entry in the `STATES` array is a visual waypoint. The Earth interpolates co
 | `surfaceApproach` | string | `'screenprint'` / `'watercolor'` / `'topographic'` — selects noise shaping |
 | `cloudApproach` | string | `'warped'` / `'ridged_wisps'` / `'warped_layers'` / `'warped_wisps'` |
 
-Current STATES sequence (15 entries):
+Current STATES sequence (14 entries):
 
 All blends use **smoothstep easing** (slow → fast → slow). Transition style noted per entry.
 
@@ -342,7 +342,7 @@ All blends use **smoothstep easing** (slow → fast → slow). Transition style 
 | 13 | Green World | 400–66 | screenprint | warped_wisps | 70 Ma ramp | Full-span drift into Modern Earth. Full SDF. |
 | 14 | Modern Earth | 66–0 | screenprint | warped_wisps | Full-span | — Full SDF + polar ice. |
 
-For palette details and colour rationale for each state, see **`colour-reference.md`**.
+For palette details and colour rationale for each phase, see **`colour-reference.md`**.
 
 ---
 
@@ -440,7 +440,7 @@ Four cloud rendering approaches on a 4-column grid. Each globe shares a `surface
 
 **Controls:** Cloud Density (0–0.80), Cloud Shape (band↔swirl, 0–1), Rotation Speed, Palette (modern/hadean/archean/hothouse/snowball), Presets (Steam, Archean, Modern, Hothouse, Cryo).
 
-**Outcome:** Warped Wisps selected as the production cloud approach — brushstroke feel without stiffness. However, per-state approach selection was adopted instead of a single global approach: warped_layers for heavy early atmospheres, warped for transitional/snowball states, warped_wisps for post-snowball.
+**Outcome:** Warped Wisps selected as the production cloud approach — brushstroke feel without stiffness. However, per-state approach selection was adopted instead of a single global approach: warped_layers for heavy early atmospheres, warped for transitional/snowball phases, warped_wisps for post-snowball.
 
 ### `surface-compare.html` — Surface Render Lab
 
@@ -464,7 +464,7 @@ Five surface rendering approaches split across two grids: procedural (3-column) 
 Unified per-phase editor for palette, shader approach, haze, and render parameters. Single raw-WebGL globe (quad-shader, no Three.js) with CSS haze overlays, matching the production rendering pipeline. Three-column layout: phase list → globe + colour picker → shader controls.
 
 **Layout:**
-- **Top strip** — all 15 phases as stacked c3→c0 colour bands; click to jump.
+- **Top strip** — all 14 phases as stacked c3→c0 colour bands; click to jump.
 - **Left panel** — scrollable phase list with 4 swatches per phase. Click any swatch to edit. Active phase highlighted with `#E34E2A` index number.
 - **Centre: globe** — 240px WebGL globe rendered via a fullscreen-quad fragment shader (no geometry). Identical PREAMBLE (noise functions, `rotY`) shared with cloud-compare and surface-compare. Light haze and dark haze are CSS div overlays on top, using the production `radial-gradient(circle closest-side ...)` approach. Rotation is west-to-east (negative angle in `rotY` convention). Clouds rotate independently at a separate speed.
 - **Centre: colour wheel** — HSL gradient wheel (radius = saturation, angle = hue) rendered to a 400×400 canvas, displayed at 200px. Lightness slider below. Crosshair tracks current position. Direct hex input with swatch preview.
@@ -487,7 +487,7 @@ Unified per-phase editor for palette, shader approach, haze, and render paramete
 
 **Keyboard navigation:** Arrow keys or vim `hjkl`. Up/down = phase. Left/right cycles through targets: `c0 → c1 → c2 → c3 → hazeColor → darkHazeColor`.
 
-**Export:** "Copy Palette JS" button writes all 15 phases' palette, haze, threshold, cloud, and approach values to the clipboard as JS-ready snippets. The exported values are stored in `palette-js.md` and have been applied to production `eona.html` via `implement_palette.py`.
+**Export:** "Copy Palette JS" button writes all 14 phases' palette, haze, threshold, cloud, and approach values to the clipboard as JS-ready snippets. The exported values are stored in `palette-js.md` and have been applied to production `eona.html` via `implement_palette.py`.
 
 ---
 
