@@ -4,7 +4,7 @@ A website that maps Earth's 4.5 billion year history onto a 12-hour clock. Midni
 
 ## Concept
 
-The clock runs on local time. When you look at it at 3am or 3pm, you're seeing the Cambrian explosion. At 11:39, the dinosaurs go extinct. Humans appear in the final 0.3 seconds before noon/midnight.
+The clock runs on local time. When you look at it at 10:34, you're seeing the Cambrian explosion. At 11:39, the dinosaurs go extinct. Humans appear 2.85 seconds before noon/midnight.
 
 The goal is visceral understanding — not education, but feeling. The "holy shit" moment when abstraction clicks into physical intuition.
 
