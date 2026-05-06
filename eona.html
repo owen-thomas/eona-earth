@@ -459,6 +459,9 @@
         <clipPath id="eon-reveal-clip">
           <path id="eon-reveal-path" d=""/>
         </clipPath>
+        <clipPath id="future-eon-reveal-clip">
+          <path id="future-eon-reveal-path" d=""/>
+        </clipPath>
       </defs>
       <!-- Transparent background hit area so empty regions of the clock still
            receive pointer events (for rotate-drag). Sits beneath everything.
@@ -467,6 +470,7 @@
               cx="200" cy="200" r="200" fill="transparent"
               pointer-events="all"/>
       <g id="eon-ring"></g>
+      <g id="future-eon-ring"></g>
       <g id="hour-markers"></g>
     </svg>
 
@@ -598,6 +602,40 @@
       { name: 'Humans appear', time: 0.3, desc: 'Homo sapiens emerges in Africa.<br>We are this new.' }
     ];
     
+    // Future events — time values are negative Ma (future convention: -50 = 50 Ma from now)
+    const FUTURE_EVENTS = [
+      { name: 'Mediterranean closes', time: -50,
+        desc: 'Africa collides with Europe. The Mediterranean Sea disappears.' },
+      { name: 'Pangaea Proxima', time: -250,
+        desc: 'The continents merge into a new supercontinent.' },
+      { name: 'Supercontinent breaks up', time: -400,
+        desc: 'Rifting tears the supercontinent apart. Volcanic chains line the fractures.' },
+      { name: 'Last plants die', time: -600,
+        desc: 'Rising solar heat strips CO₂ from the air. Photosynthesis becomes impossible.' },
+      { name: 'Complex life ends', time: -800,
+        desc: 'Only microbes survive. A billion years of evolution, undone by a brightening star.' },
+      { name: 'Oceans begin to boil', time: -1500,
+        desc: 'A runaway greenhouse turns the surface to steam.' },
+      { name: 'Last water lost', time: -3000,
+        desc: 'The oceans are gone. Earth becomes a desert world.' },
+      { name: 'Plate tectonics stops', time: -3500,
+        desc: 'The mantle cools. The crust freezes. Earth goes geologically silent.' },
+      { name: 'Red giant', time: -4300,
+        desc: 'The Sun swells to consume Mercury and Venus. Earth\'s surface melts.' },
+      { name: 'Earth destroyed', time: -4540,
+        desc: 'The Sun engulfs or sterilises the Earth.<br>The story ends where it began.' }
+    ];
+
+    // Future phase segments for the eon ring — opacity mirrors past eons in reverse
+    const FUTURE_PHASES = [
+      { name: 'Near Earth',      start:     0, end:   -250, opacity: 0.96 },
+      { name: 'Supercontinent',  start:  -250, end:   -600, opacity: 0.80 },
+      { name: 'Dying Biosphere', start:  -600, end:  -1500, opacity: 0.64 },
+      { name: 'Ocean Loss',      start: -1500, end:  -3000, opacity: 0.48 },
+      { name: 'Terminal Earth',  start: -3000, end:  -4300, opacity: 0.32 },
+      { name: 'Red Giant',       start: -4300, end:  -4540, opacity: 0.16 },
+    ];
+
     // === UTILITY FUNCTIONS ===
     function maToAngle(ma) {
       // Past (ma ≥ 0): 4540 → −90° (12 o'clock), 0 → 270° (12 o'clock, full circle).
@@ -628,6 +666,14 @@
     function getCurrentEra(ma) {
       if (ma < 0) return null;
       return ERAS.find(era => ma <= era.start && ma > era.end);
+    }
+
+    function getCurrentFuturePhaseName(ma) {
+      // ma < 0; returns the name of the future phase the clock is currently in
+      for (const p of FUTURE_PHASES) {
+        if (ma <= p.start && ma > p.end) return p.name;
+      }
+      return 'Red Giant';
     }
     
     function formatMa(ma) {
@@ -1933,17 +1979,30 @@
     
     // === SVG DRAWING ===
     function updateEonReveal(ma) {
-      const path = document.getElementById('eon-reveal-path');
-      if (!path) return;
-      // Future times (ma ≤ 0): past eons fully revealed
-      const hourDeg = ma <= 0 ? 360 : ((EARTH_AGE - ma) / EARTH_AGE) * 360;
-      if (hourDeg <= 0) { path.setAttribute('d', ''); return; }
-      if (hourDeg >= 360) { path.setAttribute('d', 'M 0 0 H 400 V 400 H 0 Z'); return; }
+      const pastPath = document.getElementById('eon-reveal-path');
+      const futurePath = document.getElementById('future-eon-reveal-path');
+      if (!pastPath || !futurePath) return;
       const R = 250, cx = 200, cy = 200;
-      const start = polarToCartesian(cx, cy, R, 0);
-      const end   = polarToCartesian(cx, cy, R, hourDeg);
-      const large = hourDeg > 180 ? 1 : 0;
-      path.setAttribute('d', `M ${cx} ${cy} L ${start.x} ${start.y} A ${R} ${R} 0 ${large} 1 ${end.x} ${end.y} Z`);
+
+      function conicSector(deg) {
+        if (deg <= 0) return '';
+        if (deg >= 360) return 'M 0 0 H 400 V 400 H 0 Z';
+        const s = polarToCartesian(cx, cy, R, 0);
+        const e = polarToCartesian(cx, cy, R, deg);
+        return `M ${cx} ${cy} L ${s.x} ${s.y} A ${R} ${R} 0 ${deg > 180 ? 1 : 0} 1 ${e.x} ${e.y} Z`;
+      }
+
+      if (ma <= 0) {
+        // Future half: past ring is fully revealed; future ring reveals progressively
+        pastPath.setAttribute('d', 'M 0 0 H 400 V 400 H 0 Z');
+        const futureDeg = (-ma / EARTH_AGE) * 360;
+        futurePath.setAttribute('d', conicSector(futureDeg));
+      } else {
+        // Past half: past ring reveals progressively; future ring is hidden
+        const pastDeg = ((EARTH_AGE - ma) / EARTH_AGE) * 360;
+        pastPath.setAttribute('d', conicSector(pastDeg));
+        futurePath.setAttribute('d', '');
+      }
     }
 
     function drawEonRing() {
@@ -1952,7 +2011,7 @@
       ring.setAttribute('clip-path', 'url(#eon-reveal-clip)');
       const cx = 200, cy = 200, r = 180;
 
-      const slices = [
+      const pastSlices = [
         { name: 'Hadean',      start: 4540,  end: 4000,  opacity: 0.16 },
         { name: 'Archean',     start: 4000,  end: 2500,  opacity: 0.32 },
         { name: 'Proterozoic', start: 2500,  end: 538.8, opacity: 0.48 },
@@ -1961,7 +2020,7 @@
         { name: 'Cenozoic',    start: 66,    end: 0,     opacity: 0.96 },
       ];
 
-      slices.forEach(({ start, end, opacity }) => {
+      pastSlices.forEach(({ start, end, opacity }) => {
         const a1 = maToAngle(start) + 90;
         const a2 = maToAngle(end) + 90;
         const p1 = polarToCartesian(cx, cy, r, a1);
@@ -1986,6 +2045,38 @@
       noiseRect.setAttribute('clip-path', 'url(#eon-clip)');
       noiseRect.setAttribute('pointer-events', 'none');
       ring.appendChild(noiseRect);
+
+      // Future phase slices — same ring geometry, separate group + reveal clip
+      const futureRing = document.getElementById('future-eon-ring');
+      futureRing.innerHTML = '';
+      futureRing.setAttribute('clip-path', 'url(#future-eon-reveal-clip)');
+
+      FUTURE_PHASES.forEach(({ start, end, opacity }) => {
+        // maToAngle handles negative values: fraction = -ma / EARTH_AGE
+        const a1 = maToAngle(start) + 90;
+        const a2 = maToAngle(end) + 90;
+        const p1 = polarToCartesian(cx, cy, r, a1);
+        const p2 = polarToCartesian(cx, cy, r, a2);
+        const largeArc = (a2 - a1 + 360) % 360 > 180 ? '1' : '0';
+        const d = `M ${cx} ${cy} L ${p1.x} ${p1.y} A ${r} ${r} 0 ${largeArc} 1 ${p2.x} ${p2.y} Z`;
+        const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        path.setAttribute('d', d);
+        path.setAttribute('fill', `rgba(187,187,187,${opacity})`);
+        futureRing.appendChild(path);
+      });
+
+      // Same noise overlay for future ring
+      const futureNoiseRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+      futureNoiseRect.setAttribute('x', '20');
+      futureNoiseRect.setAttribute('y', '20');
+      futureNoiseRect.setAttribute('width', '360');
+      futureNoiseRect.setAttribute('height', '360');
+      futureNoiseRect.setAttribute('fill', '#000000');
+      futureNoiseRect.setAttribute('opacity', '0.25');
+      futureNoiseRect.setAttribute('filter', 'url(#eon-noise)');
+      futureNoiseRect.setAttribute('clip-path', 'url(#eon-clip)');
+      futureNoiseRect.setAttribute('pointer-events', 'none');
+      futureRing.appendChild(futureNoiseRect);
     }
     
     function drawLifeRing() {
@@ -2095,8 +2186,8 @@
       hitGroup.innerHTML = '';
       const cx = 200, cy = 200, orbitRadius = 156;
 
-      EVENTS.forEach((event, index) => {
-        const angle = maToAngle(event.time);
+      function makeDot(event, index, isFuture) {
+        const angle = maToAngle(event.time); // works for both positive and negative time values
         const pos = polarToCartesian(cx, cy, orbitRadius, angle + 90);
 
         const dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
@@ -2105,6 +2196,7 @@
         dot.setAttribute('r', '2');
         dot.setAttribute('pointer-events', 'none');
         dot.setAttribute('data-event-dot', index);
+        dot.dataset.eventFuture = isFuture ? 'true' : 'false';
         dot.style.fill = '#ffffff';
         dot.style.transition = 'fill 0.5s ease';
 
@@ -2116,10 +2208,14 @@
         hitArea.setAttribute('pointer-events', 'all');
         hitArea.setAttribute('class', 'event-hit-area');
         hitArea.setAttribute('data-event-index', index);
+        hitArea.dataset.eventFuture = isFuture ? 'true' : 'false';
 
         markers.appendChild(dot);
         hitGroup.appendChild(hitArea);
-      });
+      }
+
+      EVENTS.forEach((event, index) => makeDot(event, index, false));
+      FUTURE_EVENTS.forEach((event, index) => makeDot(event, index, true));
 
       // Overlay dot — always last in the group so it paints on top of all others
       const overlay = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
@@ -2200,41 +2296,44 @@
       const OVERLAP_ZONE = 24; // scrubber radius → handle enters outline state
       const MA_PROXIMITY = 300; // must also be within 300 Ma of the event time
 
-      let closestIdx = -1;
+      let closestDot = null;
+      let closestEvent = null;
       let closestDist = Infinity;
       let scrubOverMarker = false;
 
-      dots.forEach((dot, i) => {
+      dots.forEach((dot) => {
         const cx = parseFloat(dot.getAttribute('cx'));
         const cy = parseFloat(dot.getAttribute('cy'));
         const dist = Math.sqrt((cx - scrubX) ** 2 + (cy - scrubY) ** 2);
 
         if (dist < OVERLAP_ZONE) scrubOverMarker = true;
-        // Skip event proximity check during future time — FUTURE_EVENTS not wired yet.
-        if (ma < 0) return;
-        if (dist <= ACTIVE_ZONE && dist < closestDist && Math.abs(EVENTS[i].time - ma) < MA_PROXIMITY) {
+
+        const isFuture = dot.dataset.eventFuture === 'true';
+        const eventIndex = parseInt(dot.getAttribute('data-event-dot'));
+        const event = isFuture ? FUTURE_EVENTS[eventIndex] : EVENTS[eventIndex];
+
+        if (dist <= ACTIVE_ZONE && dist < closestDist && Math.abs(event.time - ma) < MA_PROXIMITY) {
           closestDist = dist;
-          closestIdx = i;
+          closestDot = dot;
+          closestEvent = event;
         }
       });
 
       const activeDotColor = _handleLatched ? '#E34E2A' : '#000000';
       const overlay = document.getElementById('event-marker-overlay');
-      dots.forEach((dot, i) => {
-        dot.style.fill = i === closestIdx ? '#000000' : '#ffffff'; // underlying dot always black when active (hidden by overlay)
+      dots.forEach((dot) => {
+        dot.style.fill = dot === closestDot ? '#000000' : '#ffffff';
       });
-      if (closestIdx !== -1) {
-        const activeDot = dots[closestIdx];
-        overlay.setAttribute('cx', activeDot.getAttribute('cx'));
-        overlay.setAttribute('cy', activeDot.getAttribute('cy'));
+      if (closestDot) {
+        overlay.setAttribute('cx', closestDot.getAttribute('cx'));
+        overlay.setAttribute('cy', closestDot.getAttribute('cy'));
         overlay.style.fill = activeDotColor;
         overlay.style.display = '';
+        showEventDescription(closestEvent);
       } else {
         overlay.style.display = 'none';
+        hideEventDescription();
       }
-
-      if (closestIdx !== -1) showEventDescription(closestIdx);
-      else hideEventDescription();
 
       // Latch outline state on first overlap — only during an active scrub session
       if (scrub.active && scrubOverMarker && !_handleLatched) {
@@ -2274,11 +2373,15 @@
     
     function updateDeepTimeDisplay(ma) {
       if (ma < 0) {
-        const futureMa = -ma;
-        const fs = FUTURE_STATES.find(s => futureMa >= s.span[0] && futureMa <= s.span[1])
-          || (futureMa <= 0 ? FUTURE_STATES[0] : FUTURE_STATES[FUTURE_STATES.length - 1]);
-        document.getElementById('era-display').textContent = fs.name;
-        document.getElementById('years-display').textContent = formatMa(ma);
+        document.getElementById('era-display').textContent = getCurrentFuturePhaseName(ma);
+        // Lock years-display to active event time while handle approaches or is at event
+        // For future events, times are negative; ma >= _activeEventMa still works:
+        // approaching (-30 >= -50 → true), passing (-60 >= -50 → false).
+        if (_activeEventMa !== null && ma >= _activeEventMa) {
+          document.getElementById('years-display').textContent = formatMa(_activeEventMa);
+        } else {
+          document.getElementById('years-display').textContent = formatMa(ma);
+        }
         return;
       }
       const eon = getCurrentEon(ma);
@@ -2310,8 +2413,7 @@
       document.getElementById('tooltip').classList.remove('visible');
     }
 
-    function showEventDescription(index) {
-      const event = EVENTS[index];
+    function showEventDescription(event) {
       if (!event) return;
       if (document.getElementById('infographic-layer').classList.contains('hidden')) return;
       _activeEventMa = event.time;
@@ -2375,7 +2477,8 @@
       container.addEventListener('mouseover', (e) => {
         if (e.target.classList.contains('event-hit-area') && eonLayerActive()) {
           _hoveredEventIndex = parseInt(e.target.dataset.eventIndex);
-          showTooltip(e, EVENTS[_hoveredEventIndex]);
+          const isFuture = e.target.dataset.eventFuture === 'true';
+          showTooltip(e, isFuture ? FUTURE_EVENTS[_hoveredEventIndex] : EVENTS[_hoveredEventIndex]);
         }
       });
       container.addEventListener('mouseout', (e) => {
