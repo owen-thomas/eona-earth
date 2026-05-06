@@ -599,26 +599,51 @@
     
     // === UTILITY FUNCTIONS ===
     function maToAngle(ma) {
-      const fraction = (EARTH_AGE - ma) / EARTH_AGE;
-      return fraction * 360 - 90;
+      // Past (ma ≥ 0): 4540 → −90° (12 o'clock), 0 → 270° (12 o'clock, full circle).
+      // Future (ma < 0): −ma sweeps 0→4540 on the same 12-hour ring.
+      // At 10:20 PM the handle sits at the same clock-face position as 10:20 AM.
+      const absMa = ma >= 0 ? EARTH_AGE - ma : -ma;
+      return (absMa / EARTH_AGE) * 360 - 90;
     }
     
     function timeToMa(hours, minutes, seconds) {
-      const totalHours = (hours % 12) + minutes / 60 + seconds / 3600;
-      const fraction = totalHours / 12;
-      return EARTH_AGE * (1 - fraction);
+      if (hours < 12) {
+        // AM — past: 00:00 = 4540 Ma, 12:00 = 0 Ma
+        const totalHours = hours + minutes / 60 + seconds / 3600;
+        return EARTH_AGE * (1 - totalHours / 12);
+      } else {
+        // PM — future: 12:00 = 0 (present), 24:00 = −4540 (Earth destroyed).
+        // Negative Ma convention: −N means N million years from now.
+        const totalHours = (hours - 12) + minutes / 60 + seconds / 3600;
+        return -(EARTH_AGE * totalHours / 12);
+      }
     }
     
     function getCurrentEon(ma) {
+      if (ma < 0) return null;
       return EONS.find(eon => ma <= eon.start && ma > eon.end) || EONS[EONS.length - 1];
     }
-    
+
     function getCurrentEra(ma) {
+      if (ma < 0) return null;
       return ERAS.find(era => ma <= era.start && ma > era.end);
     }
     
     function formatMa(ma) {
       const mobile = window.matchMedia('(max-width: 600px)').matches;
+      if (ma < 0) {
+        const f = -ma;
+        if (mobile) {
+          if (f >= 1000) return `+${(f / 1000).toFixed(2)} Ga`;
+          if (f >= 1) return `+${f.toFixed(1)} Ma`;
+          if (f >= 0.001) return `+${(f * 1000).toFixed(0)} ka`;
+          return 'Now';
+        }
+        if (f >= 1000) return `+${(f / 1000).toFixed(2)} billion years from now`;
+        if (f >= 1) return `+${f.toFixed(1)} million years from now`;
+        if (f >= 0.001) return `+${(f * 1000).toFixed(0)} thousand years from now`;
+        return 'Now';
+      }
       if (mobile) {
         if (ma >= 1000) return `${(ma / 1000).toFixed(2)} Ga`;
         if (ma >= 1) return `${ma.toFixed(1)} Ma`;
@@ -696,6 +721,9 @@
     // Given Ma, return the two bracketing SDF indices and blend [0, 1].
     // blend=0 means fully at index A; blend=1 means fully at index B.
     function getSdfBlend(ma) {
+      // Negative Ma = future. Until the future SDF atlas exists, hold at index 0
+      // (Modern Earth / present-day continents) — correct for the Near Earth state.
+      if (ma < 0) return { indexA: 0, indexB: 0, blend: 0 };
       const n = SDF_TIMESTAMPS.length;
       if (ma <= SDF_TIMESTAMPS[0])     return { indexA: 0,     indexB: 0,     blend: 0 };
       if (ma >= SDF_TIMESTAMPS[n - 1]) return { indexA: n - 1, indexB: n - 1, blend: 0 };
@@ -890,6 +918,206 @@
         surfaceApproach: 'screenprint', cloudApproach: 'warped_wisps' }
     ];
 
+    // Future states — span values are future Ma (0 = present, 4540 = Earth destroyed).
+    // Ordered oldest-first within the future direction (0 → 4540).
+    const FUTURE_STATES = [
+      // F1: Near Earth (+0 to +250 Ma)
+      // Modern Earth warming — solar luminosity ~2.5% higher by +250 Ma.
+      // Full SDF continents (useLandSea: 1.0). polarIce fades to 0.
+      { name: 'Near Earth',
+        span: [0, 250], blendStart: 0,
+        palette: ['#FAF5E8', '#6AAE5A', '#0078B8', '#006A9E', '#041520'],
+        glowColor: null, glowStrength: 0.0,
+        hazeColor: '#E8DCC8', hazeOpacity: 0.12,
+        darkHazeColor: '#0A0804', darkHazeOpacity: 0.30,
+        noiseThresh1: 0.46, noiseThresh2: 0.56, surfaceIntensity: 0.82,
+        cloudDensity: 0.50, cloudShape: 1.00, polarIce: 0.0,
+        useLandSea: 1.0, coastSoftness: 0.03,
+        surfaceApproach: 'screenprint', cloudApproach: 'warped_wisps',
+        seed: 7.0 },
+
+      // F2a: Supercontinent peak (+250 to +400 Ma)
+      // Pangaea Proxima assembled. SDF data ends; useLandSea fades 1.0→0.0 over first 50 Ma.
+      // Huge desert interior, monsoon edges, hotter than past Pangaea.
+      { name: 'Supercontinent',
+        span: [250, 400], blendStart: 250,
+        palette: ['#F0E0C0', '#B8865A', '#1A7A8A', '#105868', '#081820'],
+        glowColor: null, glowStrength: 0.0,
+        hazeColor: '#E0CCA0', hazeOpacity: 0.20,
+        darkHazeColor: '#1A1008', darkHazeOpacity: 0.40,
+        noiseThresh1: 0.46, noiseThresh2: 0.70,
+        surfaceIntensity: 0.80,
+        cloudDensity: 0.35, cloudShape: 0.60, polarIce: 0.0,
+        useLandSea: 1.0, coastSoftness: 0.03,
+        surfaceApproach: 'screenprint', cloudApproach: 'warped_wisps',
+        seed: 7.5 },
+
+      // F2b: Supercontinent breakup (+400 to +500 Ma)
+      // Rift systems, volcanic haze, procedural landmass fragmenting.
+      { name: 'Supercontinent breakup',
+        span: [400, 500], blendStart: 400,
+        palette: ['#E8D0A8', '#A07848', '#187080', '#0E4850', '#061418'],
+        glowColor: null, glowStrength: 0.0,
+        hazeColor: '#D0B888', hazeOpacity: 0.30,
+        darkHazeColor: '#1A0E06', darkHazeOpacity: 0.45,
+        noiseThresh1: 0.48, noiseThresh2: 0.58,
+        surfaceIntensity: 0.75,
+        cloudDensity: 0.40, cloudShape: 0.50, polarIce: 0.0,
+        useLandSea: 0.0, coastSoftness: 0.03,
+        surfaceApproach: 'screenprint', cloudApproach: 'warped_wisps',
+        seed: 8.0 },
+
+      // F2c: Late breakup (+500 to +600 Ma)
+      // Dispersed continents; green already fading, transition toward dying biosphere.
+      { name: 'Late breakup',
+        span: [500, 600], blendStart: 500,
+        palette: ['#E0D0B0', '#7A8850', '#1A6870', '#0E4048', '#061210'],
+        glowColor: null, glowStrength: 0.0,
+        hazeColor: '#C8C0A0', hazeOpacity: 0.25,
+        darkHazeColor: '#141008', darkHazeOpacity: 0.40,
+        noiseThresh1: 0.48, noiseThresh2: 0.56,
+        surfaceIntensity: 0.72,
+        cloudDensity: 0.35, cloudShape: 0.40, polarIce: 0.0,
+        useLandSea: 0.0, coastSoftness: 0.03,
+        surfaceApproach: 'screenprint', cloudApproach: 'warped_wisps',
+        seed: 8.5 },
+
+      // F3a: Dying biosphere early (+600 to +800 Ma)
+      // Greens draining; last complex life dies; cloud thinning begins.
+      { name: 'Dying biosphere (early)',
+        span: [600, 800], blendStart: 600,
+        palette: ['#D8C8A8', '#6A7040', '#286068', '#183840', '#08100C'],
+        glowColor: null, glowStrength: 0.0,
+        hazeColor: '#B8B090', hazeOpacity: 0.22,
+        darkHazeColor: '#100C06', darkHazeOpacity: 0.38,
+        noiseThresh1: 0.48, noiseThresh2: 0.56,
+        surfaceIntensity: 0.68,
+        cloudDensity: 0.28, cloudShape: 0.30, polarIce: 0.0,
+        useLandSea: 0.0,
+        surfaceApproach: 'screenprint', cloudApproach: 'warped',
+        seed: 9.0 },
+
+      // F3b: Dying biosphere mid (+800 to +1150 Ma)
+      // Ochre/tan land; only microbes; thin wispy clouds.
+      { name: 'Dying biosphere (mid)',
+        span: [800, 1150], blendStart: 800,
+        palette: ['#D0C0A0', '#8A7850', '#406870', '#284048', '#0A1210'],
+        glowColor: null, glowStrength: 0.0,
+        hazeColor: '#C0B090', hazeOpacity: 0.20,
+        darkHazeColor: '#0E0A06', darkHazeOpacity: 0.35,
+        noiseThresh1: 0.50, noiseThresh2: 0.60,
+        surfaceIntensity: 0.60,
+        cloudDensity: 0.20, cloudShape: 0.20, polarIce: 0.0,
+        useLandSea: 0.0,
+        surfaceApproach: 'screenprint', cloudApproach: 'warped',
+        seed: 9.5 },
+
+      // F3c: Dying biosphere late (+1150 to +1500 Ma)
+      // Pale tan, bleached; oceans visibly smaller; atmosphere thinning.
+      { name: 'Dying biosphere (late)',
+        span: [1150, 1500], blendStart: 1150,
+        palette: ['#C8B898', '#9A8A6A', '#587078', '#384850', '#0C1418'],
+        glowColor: null, glowStrength: 0.0,
+        hazeColor: '#B8A888', hazeOpacity: 0.18,
+        darkHazeColor: '#0C0804', darkHazeOpacity: 0.32,
+        noiseThresh1: 0.52, noiseThresh2: 0.64,
+        surfaceIntensity: 0.52,
+        cloudDensity: 0.14, cloudShape: 0.10, polarIce: 0.0,
+        useLandSea: 0.0,
+        surfaceApproach: 'screenprint', cloudApproach: 'warped',
+        seed: 10.0 },
+
+      // F4a: Moist greenhouse (+1500 to +2250 Ma)
+      // Thick steam atmosphere; white haze; globe looks foggy.
+      { name: 'Moist greenhouse',
+        span: [1500, 2250], blendStart: 1500,
+        palette: ['#D0C8C0', '#A09080', '#708088', '#485860', '#101820'],
+        glowColor: null, glowStrength: 0.0,
+        hazeColor: '#E0D8D0', hazeOpacity: 0.45,
+        darkHazeColor: '#1A1410', darkHazeOpacity: 0.50,
+        noiseThresh1: 0.54, noiseThresh2: 0.68,
+        surfaceIntensity: 0.40,
+        cloudDensity: 0.10, cloudShape: 0.00, polarIce: 0.0,
+        useLandSea: 0.0,
+        surfaceApproach: 'screenprint', cloudApproach: 'warped_layers',
+        seed: 10.5 },
+
+      // F4b: Dry aftermath (+2250 to +3000 Ma)
+      // Steam clears; sulphur-yellow haze; exposed salt flats. No blue anywhere.
+      { name: 'Dry aftermath',
+        span: [2250, 3000], blendStart: 2250,
+        palette: ['#C8B890', '#B0986A', '#908068', '#685848', '#181010'],
+        glowColor: null, glowStrength: 0.0,
+        hazeColor: '#C8B870', hazeOpacity: 0.55,
+        darkHazeColor: '#1A1408', darkHazeOpacity: 0.55,
+        noiseThresh1: 0.56, noiseThresh2: 0.72,
+        surfaceIntensity: 0.45,
+        cloudDensity: 0.05, cloudShape: 0.00, polarIce: 0.0,
+        useLandSea: 0.0,
+        surfaceApproach: 'screenprint', cloudApproach: 'warped',
+        seed: 11.0 },
+
+      // F5a: Terminal Earth early (+3000 to +3650 Ma)
+      // Tan → burnt sienna; plate tectonics ceasing.
+      { name: 'Terminal Earth (early)',
+        span: [3000, 3650], blendStart: 3000,
+        palette: ['#B0987A', '#987858', '#786050', '#584038', '#140C08'],
+        glowColor: null, glowStrength: 0.0,
+        hazeColor: '#A89068', hazeOpacity: 0.45,
+        darkHazeColor: '#1A1008', darkHazeOpacity: 0.50,
+        noiseThresh1: 0.54, noiseThresh2: 0.65,
+        surfaceIntensity: 0.35,
+        cloudDensity: 0.03, cloudShape: 0.00, polarIce: 0.0,
+        useLandSea: 0.0,
+        surfaceApproach: 'screenprint', cloudApproach: 'warped',
+        seed: 11.5 },
+
+      // F5b: Terminal Earth late (+3650 to +4300 Ma)
+      // Dark reddish-brown; minimal tonal range; land/sea boundary dissolving.
+      { name: 'Terminal Earth (late)',
+        span: [3650, 4300], blendStart: 3650,
+        palette: ['#8A7060', '#704838', '#5A3828', '#3A2018', '#100808'],
+        glowColor: null, glowStrength: 0.0,
+        hazeColor: '#806040', hazeOpacity: 0.35,
+        darkHazeColor: '#1A0C06', darkHazeOpacity: 0.55,
+        noiseThresh1: 0.52, noiseThresh2: 0.58,
+        surfaceIntensity: 0.28,
+        cloudDensity: 0.00, cloudShape: 0.00, polarIce: 0.0,
+        useLandSea: 0.0,
+        surfaceApproach: 'screenprint', cloudApproach: 'warped',
+        seed: 12.0 },
+
+      // F6a: Red Giant onset (+4300 to +4450 Ma)
+      // Glow returns; surface remolten; rising intensity. Mirror of Hadean.
+      { name: 'Red Giant',
+        span: [4300, 4450], blendStart: 4300,
+        palette: ['#2D2D2D', '#C84020', '#6A1808', '#3A0C04', '#1A0800'],
+        glowColor: '#E04020', glowStrength: 0.40,
+        hazeColor: '#C84020', hazeOpacity: 0.50,
+        darkHazeColor: '#1A0808', darkHazeOpacity: 0.50,
+        noiseThresh1: 0.75, noiseThresh2: 0.78,
+        surfaceIntensity: 0.80,
+        cloudDensity: 0.00, cloudShape: 0.00, polarIce: 0.0,
+        useLandSea: 0.0,
+        surfaceApproach: 'topographic', cloudApproach: 'warped_layers',
+        seed: 12.5 },
+
+      // F6b: Earth destroyed (+4450 to +4540 Ma)
+      // Mirror of Molten Hadean (early) but ending in black rather than starting from it.
+      { name: 'Earth destroyed',
+        span: [4450, 4540], blendStart: 4450,
+        palette: ['#1A1A1A', '#8A2010', '#3A0C04', '#1A0600', '#0A0200'],
+        glowColor: '#C83010', glowStrength: 0.55,
+        hazeColor: '#6A1808', hazeOpacity: 0.40,
+        darkHazeColor: '#0A0404', darkHazeOpacity: 0.70,
+        noiseThresh1: 0.80, noiseThresh2: 0.79,
+        surfaceIntensity: 0.60,
+        cloudDensity: 0.00, cloudShape: 0.00, polarIce: 0.0,
+        useLandSea: 0.0,
+        surfaceApproach: 'topographic', cloudApproach: 'warped_layers',
+        seed: 13.0 },
+    ];
+
     // Parse hex → rgb float triplet once at startup, cache on state object.
     function hexToRgb(hex) {
       const h = hex.replace('#','');
@@ -899,7 +1127,7 @@
         parseInt(h.slice(4,6),16)/255
       ];
     }
-    STATES.forEach(s => {
+    [...STATES, ...FUTURE_STATES].forEach(s => {
       s.rgb = s.palette.map(hexToRgb);
       s.glowRgb = s.glowColor ? hexToRgb(s.glowColor) : [0, 0, 0];
       s.hazeRgb = s.hazeColor ? hexToRgb(s.hazeColor) : [0, 0, 0];
@@ -944,7 +1172,35 @@
       // Not matched above — must be inside the last state's span.
       return { a: last, b: last, blend: 0 };
     }
-    
+
+    // Mirror of getVisualState for FUTURE_STATES. futureMa is positive (0 = present,
+    // 4540 = Earth destroyed). Spans increase in the same direction as futureMa, so
+    // the blend logic runs in the opposite direction to the past version.
+    function getFutureVisualState(futureMa) {
+      const FS = FUTURE_STATES;
+      const last = FS.length - 1;
+      if (futureMa <= 0)              return { a: 0,    b: 0,    blend: 0, atmosphereBlend: 0 };
+      if (futureMa >= FS[last].span[1]) return { a: last, b: last, blend: 0, atmosphereBlend: 0 };
+      for (let i = 0; i < last; i++) {
+        const s = FS[i];
+        const nextStart = FS[i + 1].span[0]; // contiguous spans → equals s.span[1]
+        if (futureMa < s.blendStart) {
+          // Before blend zone — pure state i
+          return { a: i, b: i, blend: 0, atmosphereBlend: 0 };
+        }
+        if (futureMa <= nextStart) {
+          const denom = nextStart - s.blendStart;
+          const t = denom > 0 ? Math.max(0, Math.min(1, (futureMa - s.blendStart) / denom)) : 1;
+          const blend = t * t * (3 - 2 * t);
+          const ta = Math.max(0, Math.min(1, t + 0.2));
+          const atmosphereBlend = ta * ta * (3 - 2 * ta);
+          return { a: i, b: i + 1, blend, atmosphereBlend };
+        }
+        // futureMa is past this state entirely — continue to next
+      }
+      return { a: last, b: last, blend: 0, atmosphereBlend: 0 };
+    }
+
     const vertexShader = `
       varying vec2 vUv;
       varying vec3 vNormal;
@@ -1485,26 +1741,30 @@
       if (!earthSphere) return;
 
       // Resolve the current Ma to two adjacent visual states + blend.
-      // Each state ships its own parameters to the shader unmodified — we only
-      // interpolate stateBlend and the silhouette color c4. The surface/cloud
-      // noise is rendered twice (once per state) inside the shader, with
-      // stable per-state seeds, and the two outputs are mixed by blend.
-      // This preserves the visual integrity of each state's pattern during
-      // transitions — rotation reads cleanly because noise doesn't morph in
-      // sample space.
-      const vs = getVisualState(ma);
-      const A = STATES[vs.a];
-      const B = STATES[vs.b];
+      // Negative ma = future; dispatch to FUTURE_STATES in that case.
+      const isFuture = ma < 0;
+      const futureMa = isFuture ? -ma : 0;
+      const vs = isFuture ? getFutureVisualState(futureMa) : getVisualState(ma);
+      const stateArr = isFuture ? FUTURE_STATES : STATES;
+      const A = stateArr[vs.a];
+      const B = stateArr[vs.b];
       const t = vs.blend;
       const u = earthMaterial.uniforms;
 
-      // Per-state params — pushed directly, no interpolation.
-      
+      // useLandSea crossfade: +250→+300 Ma, certainty dissolves from SDF → procedural.
+      // Applied as an override so the FUTURE_STATES objects stay immutable.
+      let useLandSeaOverrideA, useLandSeaOverrideB;
+      if (isFuture && futureMa >= 250 && futureMa <= 300) {
+        const xf = 1.0 - (futureMa - 250) / 50;
+        useLandSeaOverrideA = Math.max(0, (A.useLandSea ?? 0) * xf);
+        useLandSeaOverrideB = Math.max(0, (B.useLandSea ?? 0) * xf);
+      }
+
       // Encode approach strings → shader float IDs
       const SURF_APPROACH_ID = { screenprint: 0.0, watercolor: 1.0, topographic: 2.0 };
       const CLOUD_APPROACH_ID = { warped: 0.0, ridged_wisps: 1.0, warped_layers: 2.0, warped_wisps: 3.0 };
 
-      function setState(prefix, S) {
+      function setState(prefix, S, useLandSeaOverride) {
         u[prefix + 'C0'].value.set(S.rgb[0][0], S.rgb[0][1], S.rgb[0][2]);
         u[prefix + 'C1'].value.set(S.rgb[1][0], S.rgb[1][1], S.rgb[1][2]);
         u[prefix + 'C2'].value.set(S.rgb[2][0], S.rgb[2][1], S.rgb[2][2]);
@@ -1514,15 +1774,15 @@
         u[prefix + 'CloudShape'].value = S.cloudShape;
         u[prefix + 'PolarIce'].value   = S.polarIce;
         u[prefix + 'Seed'].value       = S.seed;
-        u[prefix + 'UseLandSea'].value = S.useLandSea;
+        u[prefix + 'UseLandSea'].value = useLandSeaOverride !== undefined ? useLandSeaOverride : S.useLandSea;
         u[prefix + 'CoastSoft'].value  = S.coastSoftness;
         u[prefix + 'NoiseThresh1'].value = S.noiseThresh1 ?? 0.46;
         u[prefix + 'NoiseThresh2'].value = S.noiseThresh2 ?? 0.56;
         u[prefix + 'SurfApproach'].value  = SURF_APPROACH_ID[S.surfaceApproach ?? 'screenprint'] ?? 0.0;
         u[prefix + 'CloudApproach'].value = CLOUD_APPROACH_ID[S.cloudApproach ?? 'warped_wisps'] ?? 3.0;
       }
-      setState('a', A);
-      setState('b', B);
+      setState('a', A, useLandSeaOverrideA);
+      setState('b', B, useLandSeaOverrideB);
 
       // === ATMOSPHERIC GLOW ===
       // Interpolate glow strength and colour between A and B states.
@@ -1578,8 +1838,10 @@
       const dr = Math.round((dA[0] + (dB[0] - dA[0]) * t) * 255);
       const dg = Math.round((dA[1] + (dB[1] - dA[1]) * t) * 255);
       const db = Math.round((dA[2] + (dB[2] - dA[2]) * t) * 255);
-      // fraction: 0 at midnight (full coverage), 1 at end of day (no coverage)
-      const hourDeg = Math.max(0, Math.min(360, ((EARTH_AGE - ma) / EARTH_AGE) * 360));
+      // fraction: 0 at midnight (full coverage), 1 at end of day (no coverage).
+      // Clamp to past Ma — future time has no dark haze (hourDeg ≥ 360 → opacity 0).
+      const pastMaForHaze = Math.max(0, ma);
+      const hourDeg = Math.max(0, Math.min(360, ((EARTH_AGE - pastMaForHaze) / EARTH_AGE) * 360));
       const FADE_DEG = 22.5; // arc width ≈ 20% of sphere diameter at the rim
       const radialBg = `radial-gradient(circle closest-side at center, rgba(${dr},${dg},${db},0) 0%, rgba(${dr},${dg},${db},1) 100%)`;
       if (dOp < 0.005 || hourDeg >= 360) {
@@ -1602,6 +1864,19 @@
         darkHazeEl.style.maskImage = conicMask;
         darkHazeEl.style.opacity = dOp.toFixed(3);
       }
+
+      // === FADE TO/FROM BLACK ===
+      // Ramp opacity 0→1 over the first 30 Ma of the Hadean (past 4540→4510 Ma).
+      // Ramp opacity 1→0 over the last 30 Ma of the future (future 4510→4540 Ma).
+      // Creates a seamless black→molten loop at the midnight boundary.
+      const FADE_MA = 30;
+      let earthOpacity = 1.0;
+      if (!isFuture && ma > EARTH_AGE - FADE_MA) {
+        earthOpacity = (EARTH_AGE - ma) / FADE_MA;
+      } else if (isFuture && futureMa > EARTH_AGE - FADE_MA) {
+        earthOpacity = (EARTH_AGE - futureMa) / FADE_MA;
+      }
+      earthEl.style.opacity = earthOpacity.toFixed(3);
 
       // c4 (silhouette) IS interpolated — it's used only for edge falloff,
       // not for noise sampling, so interpolating it doesn't cause pattern drift.
@@ -1919,6 +2194,8 @@
         const dist = Math.sqrt((cx - scrubX) ** 2 + (cy - scrubY) ** 2);
 
         if (dist < OVERLAP_ZONE) scrubOverMarker = true;
+        // Skip event proximity check during future time — FUTURE_EVENTS not wired yet.
+        if (ma < 0) return;
         if (dist <= ACTIVE_ZONE && dist < closestDist && Math.abs(EVENTS[i].time - ma) < MA_PROXIMITY) {
           closestDist = dist;
           closestIdx = i;
@@ -1959,8 +2236,10 @@
       if (scrub.active && !earthHidden) return; // hand is hidden, nothing to update
 
       if (scrub.active && earthHidden) {
-        // Derive minute position from scrubber's geological time — snapped to whole minutes (no blur)
-        const fraction = (EARTH_AGE - scrub.ma) / EARTH_AGE;
+        // Derive minute position from scrubber's geological time — snapped to whole minutes (no blur).
+        // Clamp scrub.ma to past range; future Ma doesn't map to a clock minute position yet.
+        const scrubMaPast = Math.max(0, scrub.ma);
+        const fraction = (EARTH_AGE - scrubMaPast) / EARTH_AGE;
         const minuteOfHour = (fraction * 12 * 60) % 60;
         hand.setAttribute('transform', `rotate(${Math.floor(minuteOfHour) * 6}, 200, 200)`);
         return;
@@ -1978,6 +2257,14 @@
     }
     
     function updateDeepTimeDisplay(ma) {
+      if (ma < 0) {
+        const futureMa = -ma;
+        const fs = FUTURE_STATES.find(s => futureMa >= s.span[0] && futureMa <= s.span[1])
+          || (futureMa <= 0 ? FUTURE_STATES[0] : FUTURE_STATES[FUTURE_STATES.length - 1]);
+        document.getElementById('era-display').textContent = fs.name;
+        document.getElementById('years-display').textContent = formatMa(ma);
+        return;
+      }
       const eon = getCurrentEon(ma);
       const era = getCurrentEra(ma);
       document.getElementById('era-display').textContent = era ? `${era.name} Era` : `${eon.name} Eon`;
@@ -2263,24 +2550,33 @@
         scrub.lastAngle = ang;
 
         if (mode === 'scrub') {
-          const rawMa = angleToMa(ang);
+          scrub.cumulativeAngleDelta += delta;
 
-          // Snap to event markers when within ~4px (18 Ma at orbit r=156)
-          const SNAP_MA = 18;
-          let snapMa = null, snapDist = Infinity;
-          EVENTS.forEach(ev => {
-            const d = Math.abs(ev.time - rawMa);
-            if (d < SNAP_MA && d < 300 && d < snapDist) { snapDist = d; snapMa = ev.time; }
-          });
+          // Derive geological Ma from the cumulative display-time position.
+          // This spans AM (past) and PM (future) correctly via timeToMa.
+          const rawDisplaySecs = scrub.displayStartSecs + scrub.cumulativeAngleDelta / 360 * 43200;
+          const displaySecs = ((rawDisplaySecs % 86400) + 86400) % 86400;
+          const sh = Math.floor(displaySecs / 3600);
+          const sm = Math.floor((displaySecs % 3600) / 60);
+          const ss = displaySecs % 60;
+          scrub.ma = timeToMa(sh, sm, ss);
 
-          if (snapMa !== null) {
-            scrub.ma = snapMa;
-            const snappedAngle = maToAngle(snapMa);
-            scrub.cumulativeAngleDelta += delta + shortestAngleDelta(ang, snappedAngle);
-            scrub.lastAngle = snappedAngle;
-          } else {
-            scrub.ma = rawMa;
-            scrub.cumulativeAngleDelta += delta;
+          // Snap to past event markers when in the past half.
+          if (scrub.ma >= 0) {
+            const SNAP_MA = 18;
+            let snapMa = null, snapDist = Infinity;
+            EVENTS.forEach(ev => {
+              const d = Math.abs(ev.time - scrub.ma);
+              if (d < SNAP_MA && d < 300 && d < snapDist) { snapDist = d; snapMa = ev.time; }
+            });
+            if (snapMa !== null) {
+              scrub.ma = snapMa;
+              // Adjust cumulative delta so subsequent frames stay locked to snap position.
+              const snapSecs = (1 - snapMa / EARTH_AGE) * 43200;
+              const daysComplete = Math.round((rawDisplaySecs - snapSecs) / 86400);
+              scrub.cumulativeAngleDelta = (snapSecs + daysComplete * 86400 - scrub.displayStartSecs) / 43200 * 360;
+              scrub.lastAngle = maToAngle(snapMa);
+            }
           }
           scrub.rotationOffset -= delta * ROT_GAIN_SCRUB;
         } else if (mode === 'rotate') {
@@ -2373,7 +2669,8 @@
       updateDeepTimeDisplay(ma);
       drawPositionIndicator(maToAngle(ma));
 
-      updateEonReveal(ma);
+      // Eon reveal is past-only — future ring segments are Phase 4.
+      updateEonReveal(Math.max(0, ma));
       updateEarth(ma, deltaTime);
 
       requestAnimationFrame(tick);
