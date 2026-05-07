@@ -572,7 +572,7 @@
     ];
     
     const EVENTS = [
-      { name: 'Earth forms', time: 4540, desc: 'Our planet coalesces from dust and gas around the young Sun.' },
+      { name: 'The Beginning', time: 4540, desc: 'Our planet coalesces from dust and gas around the young Sun.' },
       { name: 'Moon forms', time: 4500, desc: 'A Mars-sized body collides with Earth. The debris becomes our Moon.' },
       { name: 'Surface solidifies', time: 4400, desc: 'The magma ocean cools.<br>Rain falls for the first time.' },
       { name: 'First oceans', time: 4100, desc: 'The sky falls as rain for millennia.<br>The first oceans form.' },
@@ -626,20 +626,18 @@
         desc: 'The oceans are gone.<br>Earth becomes a desert world.' },
       { name: 'Plate tectonics stops', time: -3500,
         desc: 'The mantle cools. The crust freezes. Earth goes geologically silent.' },
-      { name: 'Red giant', time: -4300,
-        desc: 'The Sun swells to consume Mercury and Venus. Earth\'s surface melts.' },
-      { name: 'Earth destroyed', time: -4540,
-        desc: 'The Sun engulfs the Earth.<br>The story ends where it began.' }
+      { name: 'The End', time: -4540,
+        displayText: '7.5 billion years from now',
+        desc: 'The Sun eventually engulfs the Earth.<br>The story ends where it began.' }
     ];
 
     // Future phase segments for the eon ring — opacity mirrors past eons in reverse
     const FUTURE_PHASES = [
       { name: 'Near Earth',      start:     0, end:   -250, opacity: 0.96 },
-      { name: 'Supercontinent',  start:  -250, end:   -600, opacity: 0.80 },
-      { name: 'Dying Biosphere', start:  -600, end:  -1500, opacity: 0.64 },
-      { name: 'Ocean Loss',      start: -1500, end:  -3000, opacity: 0.48 },
-      { name: 'Terminal Earth',  start: -3000, end:  -4300, opacity: 0.32 },
-      { name: 'Red Giant',       start: -4300, end:  -4540, opacity: 0.16 },
+      { name: 'Supercontinent',  start:  -250, end:   -600, opacity: 0.76 },
+      { name: 'Dying Biosphere', start:  -600, end:  -1500, opacity: 0.56 },
+      { name: 'Ocean Loss',      start: -1500, end:  -3000, opacity: 0.36 },
+      { name: 'Terminal Earth',  start: -3000, end:  -4540, opacity: 0.16 },
     ];
 
     // === UTILITY FUNCTIONS ===
@@ -2349,6 +2347,7 @@
 
     let _hoveredEventIndex = -1;
     let _activeEventMa = null;
+    let _activeEventDisplay = null; // optional display string override for years-display
     let _currentMa = 0;
     let _lastFutureHalf = null;
     let _markerHalfInitialized = false;
@@ -2503,7 +2502,7 @@
         // For future events, times are negative; ma >= _activeEventMa still works:
         // approaching (-30 >= -50 → true), passing (-60 >= -50 → false).
         if (_activeEventMa !== null && ma >= _activeEventMa) {
-          document.getElementById('years-display').textContent = formatMa(_activeEventMa);
+          document.getElementById('years-display').textContent = _activeEventDisplay || formatMa(_activeEventMa);
         } else {
           document.getElementById('years-display').textContent = formatMa(ma);
         }
@@ -2513,7 +2512,7 @@
       const era = getCurrentEra(ma);
       document.getElementById('era-display').textContent = era ? `${era.name} Era` : `${eon.name} Eon`;
       if (_activeEventMa !== null && ma >= _activeEventMa) {
-        document.getElementById('years-display').textContent = formatMa(_activeEventMa);
+        document.getElementById('years-display').textContent = _activeEventDisplay || formatMa(_activeEventMa);
       } else {
         document.getElementById('years-display').textContent = formatMa(ma);
       }
@@ -2542,6 +2541,7 @@
       if (!event) return;
       if (document.getElementById('infographic-layer').classList.contains('hidden')) return;
       _activeEventMa = event.time;
+      _activeEventDisplay = event.displayText || null;
       document.getElementById('event-name-suffix').textContent = event.name;
       const desc = document.getElementById('event-desc-center');
       desc.innerHTML = event.desc;
@@ -2550,6 +2550,7 @@
 
     function hideEventDescription() {
       _activeEventMa = null;
+      _activeEventDisplay = null;
       document.getElementById('event-name-suffix').textContent = '';
       document.getElementById('event-desc-center').classList.remove('visible');
     }
