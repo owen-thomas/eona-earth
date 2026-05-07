@@ -472,6 +472,7 @@
               cx="200" cy="200" r="200" fill="transparent"
               pointer-events="all"/>
       <g id="eon-ring"></g>
+      <g id="future-eon-bg"></g>
       <g id="future-eon-ring"></g>
       <g id="hour-markers"></g>
     </svg>
@@ -609,35 +610,29 @@
       { name: 'Last glaciation', time: -0.05,
         desc: 'Our changing climate outlasts us.<br>The next ice age may never arrive.' },
       { name: 'Mediterranean closes', time: -50,
-        desc: 'Africa collides with Europe.<br>The Mediterranean Sea disappears.' },
-      { name: 'Last memory of us', time: -300,
-        desc: 'Final traces of humanity, locked in rock,<br>are swallowed by the mantle.' },
-      { name: 'Pangaea Proxima', time: -250,
-        desc: 'The continents merge into<br>a new supercontinent.' },
-      { name: 'Supercontinent breaks up', time: -400,
-        desc: 'Rifting tears the supercontinent apart. Volcanic chains line the fractures.' },
-      { name: 'Last plants die', time: -600,
-        desc: 'Rising solar heat strips the air of CO₂.<br>Photosynthesis becomes impossible.' },
-      { name: 'Complex life ends', time: -800,
-        desc: 'Only microbes survive.<br>A billion years of evolution, erased.' },
-      { name: 'Oceans begin to boil', time: -1500,
-        desc: 'A runaway greenhouse turns<br>the surface to steam.' },
-      { name: 'Last water lost', time: -3000,
-        desc: 'The oceans are gone.<br>Earth becomes a desert world.' },
-      { name: 'Plate tectonics stops', time: -3500,
-        desc: 'The mantle cools. The crust freezes. Earth goes geologically silent.' },
+        desc: 'Africa crashes into Europe.<br>The Mediterranean Sea disappears.' },
+      { name: 'Pangaea Proxima forms', time: -250,
+        desc: 'The continents collide. The last traces of us get dragged under by ocean crust.' },
+      { name: 'Pangaea Proxima splits', time: -400,
+        desc: 'The supercontinent breaks apart.<br>New oceans flood the rifts.' },
+      { name: 'Photosynthesis ends', time: -600,
+        desc: 'Rising solar heat strips the air of CO₂.<br>Plants vanish from the Earth.' },
+      { name: 'Complex life ends', time: -650,
+        desc: 'Without plants, no animals survive.<br>A billion years of evolution, erased.' },
+      { name: 'Oceans evaporate', time: -1500,
+        desc: 'Water vapour traps more heat than it releases. A feedback loop begins.' },
+      { name: 'Water is lost', time: -3000,
+        desc: 'The last water molecules drift into space. Earth is dry forever.' },
+      { name: 'Tectonics stop', time: -3500,
+        desc: 'The mantle cools. Earth goes still.' },
       { name: 'The End', time: -4540,
         displayText: '7.5 billion years from now',
-        desc: 'The Sun eventually engulfs the Earth.<br>The story ends where it began.' }
+        desc: 'The expanding Sun swallows the Earth. The story ends where it began.' }
     ];
 
-    // Future phase segments for the eon ring — opacity mirrors past eons in reverse
+    // Future phase segments for the eon ring — single near-black arc
     const FUTURE_PHASES = [
-      { name: 'Near Earth',      start:     0, end:   -250, opacity: 0.96 },
-      { name: 'Supercontinent',  start:  -250, end:   -600, opacity: 0.76 },
-      { name: 'Dying Biosphere', start:  -600, end:  -1500, opacity: 0.56 },
-      { name: 'Ocean Loss',      start: -1500, end:  -3000, opacity: 0.36 },
-      { name: 'Terminal Earth',  start: -3000, end:  -4540, opacity: 0.16 },
+      { name: 'Future Earth', start: 0, end: -4540, opacity: 0.16 },
     ];
 
     // === UTILITY FUNCTIONS ===
@@ -784,12 +779,13 @@
           return { ...pastBase, futureIndexA: nf - 1, futureIndexB: nf - 1, futureBlend: 0, futureWeight: 1 };
         if (futureMa < FUTURE_SDF_TIMESTAMPS[0]) {
           // 0–50 Ma: cross-fade from past atlas[0] (Modern Earth) → future atlas[0] (+50 Ma)
-          return { ...pastBase, futureIndexA: 0, futureIndexB: 0, futureBlend: 0, futureWeight: futureMa / FUTURE_SDF_TIMESTAMPS[0] };
+          const t = futureMa / FUTURE_SDF_TIMESTAMPS[0];
+          return { ...pastBase, futureIndexA: 0, futureIndexB: 0, futureBlend: 0, futureWeight: t * t * (3 - 2 * t) };
         }
         for (let i = 0; i < nf - 1; i++) {
           if (futureMa >= FUTURE_SDF_TIMESTAMPS[i] && futureMa < FUTURE_SDF_TIMESTAMPS[i + 1]) {
-            const fb = (futureMa - FUTURE_SDF_TIMESTAMPS[i]) / (FUTURE_SDF_TIMESTAMPS[i + 1] - FUTURE_SDF_TIMESTAMPS[i]);
-            return { ...pastBase, futureIndexA: i, futureIndexB: i + 1, futureBlend: fb, futureWeight: 1 };
+            const t = (futureMa - FUTURE_SDF_TIMESTAMPS[i]) / (FUTURE_SDF_TIMESTAMPS[i + 1] - FUTURE_SDF_TIMESTAMPS[i]);
+            return { ...pastBase, futureIndexA: i, futureIndexB: i + 1, futureBlend: t * t * (3 - 2 * t), futureWeight: 1 };
           }
         }
         return { ...pastBase, futureIndexA: nf - 1, futureIndexB: nf - 1, futureBlend: 0, futureWeight: 1 };
@@ -1010,7 +1006,7 @@
       // Pangaea Proxima assembled. SDF data ends; useLandSea fades 1.0→0.0 over first 50 Ma.
       // Huge desert interior, monsoon edges, hotter than past Pangaea.
       { name: 'Supercontinent',
-        span: [250, 400], blendStart: 250,
+        span: [250, 400], blendStart: 390,
         palette: ['#F0E0C0', '#B8865A', '#1A7A8A', '#105868', '#081820'],
         glowColor: null, glowStrength: 0.0,
         hazeColor: '#E0CCA0', hazeOpacity: 0.20,
@@ -1859,14 +1855,7 @@
       const t = vs.blend;
       const u = earthMaterial.uniforms;
 
-      // useLandSea crossfade: +250→+300 Ma, certainty dissolves from SDF → procedural.
-      // Applied as an override so the FUTURE_STATES objects stay immutable.
       let useLandSeaOverrideA, useLandSeaOverrideB;
-      if (isFuture && futureMa >= 250 && futureMa <= 400) {
-        const xf = 1.0 - (futureMa - 250) / 150;
-        useLandSeaOverrideA = Math.max(0, (A.useLandSea ?? 0) * xf);
-        useLandSeaOverrideB = Math.max(0, (B.useLandSea ?? 0) * xf);
-      }
 
       // Encode approach strings → shader float IDs
       const SURF_APPROACH_ID = { screenprint: 0.0, watercolor: 1.0, topographic: 2.0 };
@@ -1984,7 +1973,7 @@
       }
 
       // earthOpacity was computed above (before the haze section) so haze fades in sync.
-      earthEl.style.opacity = earthOpacity.toFixed(3);
+      earthEl.style.opacity = earthHidden ? '0' : earthOpacity.toFixed(3);
 
       // c4 (silhouette) IS interpolated — it's used only for edge falloff,
       // not for noise sampling, so interpolating it doesn't cause pattern drift.
@@ -2102,13 +2091,17 @@
       futureRing.innerHTML = '';
       futureRing.setAttribute('clip-path', 'url(#future-eon-reveal-clip)');
 
-      // Solid black fill — blocks the past ring from showing beneath future slices
+      // Solid black fill in a separate group so it never fades — prevents the
+      // past eon ring from showing through as the future ring fades near midnight.
+      const futureBgGroup = document.getElementById('future-eon-bg');
+      futureBgGroup.innerHTML = '';
+      futureBgGroup.setAttribute('clip-path', 'url(#future-eon-reveal-clip)');
       const futBg = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
       futBg.setAttribute('cx', '200');
       futBg.setAttribute('cy', '200');
       futBg.setAttribute('r', '180');
       futBg.setAttribute('fill', '#000000');
-      futureRing.appendChild(futBg);
+      futureBgGroup.appendChild(futBg);
 
       FUTURE_PHASES.forEach(({ start, end, opacity }) => {
         // maToAngle handles negative values: fraction = -ma / EARTH_AGE
@@ -2812,11 +2805,12 @@
           const ss = displaySecs % 60;
           scrub.ma = timeToMa(sh, sm, ss);
 
-          // Snap to past event markers when in the past half.
-          if (scrub.ma >= 0) {
+          // Snap to nearby event markers (past or future half).
+          {
             const SNAP_MA = 18;
+            const events = scrub.ma >= 0 ? EVENTS : FUTURE_EVENTS;
             let snapMa = null, snapDist = Infinity;
-            EVENTS.forEach(ev => {
+            events.forEach(ev => {
               const d = Math.abs(ev.time - scrub.ma);
               if (d < SNAP_MA && d < 300 && d < snapDist) { snapDist = d; snapMa = ev.time; }
             });
@@ -2941,6 +2935,8 @@
         const futRingEl = document.getElementById('future-eon-ring');
         if (eonRingEl) eonRingEl.style.opacity = eonOp.toFixed(3);
         if (futRingEl) futRingEl.style.opacity = eonOp.toFixed(3);
+        // future-eon-bg (black blocker) intentionally omitted — stays at full
+        // opacity so the past ring never shows through during the midnight fade.
         const evtEl = document.getElementById('event-markers');
         if (evtEl) evtEl.style.opacity = (eonOp * _markerFadeOpacity).toFixed(3);
       }
