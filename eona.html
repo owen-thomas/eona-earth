@@ -270,7 +270,6 @@
       display: flex;
       justify-content: space-between;
       align-items: flex-end;
-      min-height: 25px;
     }
 
     .info-event-name {
@@ -347,6 +346,7 @@
       display: flex;
       align-items: flex-end;
       justify-content: flex-end;
+      position: relative;
     }
 
     #time-display {
@@ -359,7 +359,7 @@
       line-height: 1;
       text-box: trim-both cap alphabetic;
     }
-    body.scrubbing #time-display { display: none; }
+    body.scrubbing #time-display { visibility: hidden; }
 
     .tooltip {
       position: fixed;
@@ -382,6 +382,9 @@
 
     .return-to-now {
       display: none;
+      position: absolute;
+      right: 0;
+      bottom: 0;
       font-family: var(--font-mono);
       font-size: 10px;
       font-weight: 400;
@@ -392,13 +395,11 @@
       border: none;
       border-radius: 999px;
       padding: 8px 12px;
-      margin-right: -12px;
       cursor: pointer;
       pointer-events: auto;
       line-height: 1;
       text-box: trim-both cap alphabetic;
       white-space: nowrap;
-      transform: translateY(8px);
       transition: background 0.2s ease;
     }
     .return-to-now:hover { background: var(--accent-hover); }
@@ -618,7 +619,7 @@
       { name: 'Pangaea Proxima splits', time: -400,
         desc: 'The supercontinent breaks apart.<br>New oceans flood the rifts.' },
       { name: 'Last total solar eclipse', time: -500,
-        desc: 'The Moon drifts too far<br>to fully block out the Sun.' },
+        desc: 'The Moon drifts too far from Earth<br>to fully block out the Sun.' },
       { name: 'Photosynthesis ends', time: -600,
         desc: 'Rising solar heat strips the air of CO₂.<br>Plants vanish from the Earth.' },
       { name: 'Complex life ends', time: -650,
