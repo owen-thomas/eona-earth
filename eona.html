@@ -574,8 +574,8 @@
     
     const EVENTS = [
       { name: 'The Beginning', time: 4540, desc: 'Our planet coalesces from dust and gas around the young Sun.' },
-      { name: 'Moon forms', time: 4500, desc: 'A Mars-sized body collides with Earth. The debris becomes our Moon.' },
-      { name: 'Surface solidifies', time: 4400, desc: 'The magma ocean cools.<br>Rain falls for the first time.' },
+      { name: 'Moon forms', time: 4500, desc: 'A Mars-sized body strikes the molten Earth. The debris becomes our Moon.' },
+      { name: 'Surface solidifies', time: 4400, desc: 'The molten surface cools.<br>Rain falls for the first time.' },
       { name: 'First oceans', time: 4100, desc: 'The sky falls as rain for millennia.<br>The first oceans form.' },
       { name: 'Late Heavy Bombardment', time: 3900, desc: 'Ancient asteroids crater the Earth.<br>The oceans boil and re-condense.' },
       { name: 'First life', time: 3500, desc: 'Simple single-celled organisms appear in the primordial oceans.' },
@@ -672,7 +672,7 @@
       for (const p of FUTURE_PHASES) {
         if (ma <= p.start && ma > p.end) return p.name;
       }
-      return 'Red Giant';
+      return 'Future Earth';
     }
     
     function formatMa(ma) {
@@ -2369,7 +2369,10 @@
       }
       if (_markerFade.phase !== 'idle') {
         if (_markerFade.pendingHalf !== isFutureHalf) {
-          _markerFade = { phase: 'fadeOut', startTime: performance.now(), pendingHalf: isFutureHalf };
+          // Reversed direction mid-fade — snap correct markers in immediately, no flash.
+          _doMarkerSwap(isFutureHalf);
+          _markerFadeOpacity = 1.0;
+          _markerFade = { phase: 'idle', startTime: 0, pendingHalf: null };
         }
         return;
       }
@@ -2379,19 +2382,13 @@
 
     function tickMarkerFade() {
       if (_markerFade.phase === 'idle') return;
-      const FADE_MS = 500;
+      const FADE_MS = scrub.active ? 80 : 500;
       const elapsed = performance.now() - _markerFade.startTime;
       if (_markerFade.phase === 'fadeOut') {
         _markerFadeOpacity = Math.max(0, 1.0 - elapsed / FADE_MS);
         if (elapsed >= FADE_MS) {
           hideEventDescription();
           _doMarkerSwap(_markerFade.pendingHalf);
-          _markerFadeOpacity = 0;
-          _markerFade = { phase: 'fadeIn', startTime: performance.now(), pendingHalf: _markerFade.pendingHalf };
-        }
-      } else if (_markerFade.phase === 'fadeIn') {
-        _markerFadeOpacity = Math.min(1.0, elapsed / FADE_MS);
-        if (elapsed >= FADE_MS) {
           _markerFadeOpacity = 1.0;
           _markerFade.phase = 'idle';
         }
