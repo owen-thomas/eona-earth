@@ -13,6 +13,10 @@ body{background:#000;color:#aaa;font-family:'Space Mono',monospace;-webkit-font-
 .header{padding:20px 24px 12px;display:flex;align-items:baseline;gap:14px;border-bottom:1px solid #1a1a1a;flex-shrink:0}
 .header h1{font-size:13px;font-weight:700;color:#E34E2A;letter-spacing:.08em;text-transform:uppercase}
 .header span{font-size:11px;color:#555}
+.era-tabs{display:flex;gap:2px}
+.era-tab{font-family:'Space Mono',monospace;font-size:9px;padding:4px 10px;background:#0a0a0a;color:#555;border:1px solid #222;border-radius:3px;cursor:pointer;text-transform:uppercase;letter-spacing:.06em;transition:all .15s}
+.era-tab:hover{border-color:#555;color:#888}
+.era-tab.active{border-color:#E34E2A;color:#E34E2A}
 .palette-strip{display:flex;gap:0;border-bottom:1px solid #1a1a1a;flex-shrink:0;overflow-x:auto}
 .strip-cell{flex:1;min-width:42px;display:flex;flex-direction:column;cursor:pointer;transition:opacity .15s;position:relative}
 .strip-cell:hover{opacity:.85}
@@ -124,7 +128,11 @@ body{background:#000;color:#aaa;font-family:'Space Mono',monospace;-webkit-font-
 
 <div class="header">
   <h1>Colour Lab</h1>
-  <span>Phase palette + shader editor &mdash; 15 states</span>
+  <div class="era-tabs">
+    <button class="era-tab active" id="tab-past" data-era="past">Past</button>
+    <button class="era-tab" id="tab-future" data-era="future">Future</button>
+  </div>
+  <span id="header-count">Phase palette + shader editor &mdash; 15 states</span>
 </div>
 <div class="palette-strip" id="palette-strip"></div>
 
@@ -239,29 +247,29 @@ const STATES = [
     hazeColor:'#C7B299',hazeOpacity:0.43,darkHazeColor:'#241E18',darkHazeOpacity:0.41,
     surfaceApproach:'watercolor',cloudApproach:'warped_layers'},
   { name:'Hazy Archean (early)', span:[4000,3200],
-    palette:['#F2E7D5','#4A3B2C','#1C6055','#123D36','#060A0B'],
+    palette:['#E3CCA5','#49462D','#656B5B','#53584B','#060A0B'],
     noiseThresh1:0.50,noiseThresh2:0.65,surfaceIntensity:0.70,
     cloudDensity:1.00,cloudShape:0.00,seed:3.1,useLandSea:0.0,
-    hazeColor:'#A8C3BC',hazeOpacity:0.52,darkHazeColor:'#0A1A17',darkHazeOpacity:0.42,
+    hazeColor:'#DDAE4B',hazeOpacity:0.52,darkHazeColor:'#0A1A17',darkHazeOpacity:0.42,
     surfaceApproach:'screenprint',cloudApproach:'warped'},
   { name:'Hazy Archean (late)', span:[3200,2500],
-    palette:['#D49F8E','#644039','#1C6055','#123D36','#060E09'],
+    palette:['#D49F8E','#644039','#4F6958','#354537','#060E09'],
     noiseThresh1:0.50,noiseThresh2:0.65,surfaceIntensity:0.68,
     cloudDensity:0.50,cloudShape:0.00,seed:3.8,useLandSea:0.0,
-    hazeColor:'#E8553B',hazeOpacity:0.42,darkHazeColor:'#0E1F1C',darkHazeOpacity:0.35,
+    hazeColor:'#E15942',hazeOpacity:0.42,darkHazeColor:'#0E1F1C',darkHazeOpacity:0.35,
     surfaceApproach:'screenprint',cloudApproach:'warped'},
   { name:'Great Oxidation (early)', span:[2500,2400],
-    palette:['#F8F9FA','#745A3D','#2D6A4F','#1B4332','#131A09'],
+    palette:['#B2D2C6','#754E3C','#306367','#1E3F40','#131A09'],
     noiseThresh1:0.50,noiseThresh2:0.65,surfaceIntensity:0.75,
     cloudDensity:0.50,cloudShape:0.00,seed:3.8,useLandSea:0.0,
-    hazeColor:'#4ECDC4',hazeOpacity:0.42,darkHazeColor:'#141C16',darkHazeOpacity:0.25,
+    hazeColor:'#3CDFD5',hazeOpacity:0.42,darkHazeColor:'#141C16',darkHazeOpacity:0.25,
     surfaceApproach:'screenprint',cloudApproach:'warped'},
   { name:'Great Oxidation (late)', span:[2400,2300],
-    palette:['#FFFFFF','#8B5E3C','#1E6091','#184E77','#091420'],
+    palette:['#FFFFFF','#8B5E3C','#21728E','#1B5E74','#091420'],
     noiseThresh1:0.50,noiseThresh2:0.65,surfaceIntensity:0.75,
-    cloudDensity:0.00,cloudShape:0.00,seed:4.7,useLandSea:0.0,
+    cloudDensity:0.33,cloudShape:0.00,seed:4.7,useLandSea:0.0,
     hazeColor:'#4ECDC4',hazeOpacity:0.33,darkHazeColor:'#0D111A',darkHazeOpacity:0.20,
-    surfaceApproach:'screenprint',cloudApproach:'warped_layers'},
+    surfaceApproach:'screenprint',cloudApproach:'warped'},
   { name:'Huronian snowball', span:[2300,2100],
     palette:['#F1F3F5','#ADB5BD','#E9ECEF','#DEE2E6','#0E141B'],
     noiseThresh1:0.50,noiseThresh2:0.65,surfaceIntensity:0.32,
@@ -269,23 +277,23 @@ const STATES = [
     hazeColor:'#E0FAFF',hazeOpacity:0.50,darkHazeColor:'#1C1E21',darkHazeOpacity:0.30,
     surfaceApproach:'screenprint',cloudApproach:'warped_layers'},
   { name:'Boring Billion (early)', span:[2100,1500],
-    palette:['#FDFCF0','#84A59D','#4B7074','#325357','#060D0A'],
+    palette:['#CDD5D5','#7E8B8B','#576864','#3E4B48','#060D0A'],
     noiseThresh1:0.50,noiseThresh2:0.62,surfaceIntensity:0.62,
-    cloudDensity:0.00,cloudShape:0.00,seed:6.0,useLandSea:0.0,
-    hazeColor:'#A8A891',hazeOpacity:0.26,darkHazeColor:'#1D1D1B',darkHazeOpacity:0.23,
+    cloudDensity:0.33,cloudShape:0.00,seed:6.0,useLandSea:0.0,
+    hazeColor:'#7E7F7B',hazeOpacity:0.26,darkHazeColor:'#1D1D1B',darkHazeOpacity:0.23,
     surfaceApproach:'screenprint',cloudApproach:'warped'},
   { name:'Boring Billion (mid)', span:[1500,1000],
-    palette:['#FDFCF0','#6B705C','#4B7074','#325357','#070D11'],
+    palette:['#C6D8C9','#8D8277','#4B7074','#325357','#070D11'],
     noiseThresh1:0.50,noiseThresh2:0.62,surfaceIntensity:0.60,
-    cloudDensity:0.40,cloudShape:0.00,seed:6.0,useLandSea:0.0,
-    hazeColor:'#8F8F7A',hazeOpacity:0.25,darkHazeColor:'#1F1E1C',darkHazeOpacity:0.18,
+    cloudDensity:0.33,cloudShape:0.00,seed:6.0,useLandSea:0.0,
+    hazeColor:'#678479',hazeOpacity:0.25,darkHazeColor:'#1F1E1C',darkHazeOpacity:0.18,
     surfaceApproach:'screenprint',cloudApproach:'warped'},
   { name:'Boring Billion (late)', span:[1000,720],
-    palette:['#FDFCF0','#A89F91','#5E6E89','#41526F','#06091E'],
+    palette:['#BEC9D5','#958A79','#5E6E89','#41526F','#06091E'],
     noiseThresh1:0.50,noiseThresh2:0.62,surfaceIntensity:0.58,
-    cloudDensity:0.00,cloudShape:0.00,seed:6.0,useLandSea:0.0,
-    hazeColor:'#747D85',hazeOpacity:0.35,darkHazeColor:'#1E1F21',darkHazeOpacity:0.23,
-    surfaceApproach:'screenprint',cloudApproach:'warped_layers'},
+    cloudDensity:0.33,cloudShape:0.00,seed:6.0,useLandSea:0.0,
+    hazeColor:'#697C90',hazeOpacity:0.35,darkHazeColor:'#1E1F21',darkHazeOpacity:0.23,
+    surfaceApproach:'screenprint',cloudApproach:'warped'},
   { name:'Cryogenian snowball', span:[720,635],
     palette:['#CBDDE7','#98C1D9','#C7EDEF','#E0FBFC','#0A1428'],
     noiseThresh1:0.50,noiseThresh2:0.65,surfaceIntensity:0.28,
@@ -293,13 +301,13 @@ const STATES = [
     hazeColor:'#E0FAFF',hazeOpacity:0.48,darkHazeColor:'#151821',darkHazeOpacity:0.33,
     surfaceApproach:'screenprint',cloudApproach:'warped_wisps'},
   { name:'Hothouse world', span:[635,400],
-    palette:['#F2E8CF','#4F8D5C','#006831','#004B23','#032832'],
+    palette:['#E8ECCE','#706340','#649B84','#4C7664','#032832'],
     noiseThresh1:0.46,noiseThresh2:0.56,surfaceIntensity:0.78,
-    cloudDensity:0.00,cloudShape:0.45,seed:8.4,useLandSea:1.0,
+    cloudDensity:0.46,cloudShape:0.35,seed:8.4,useLandSea:1.0,
     hazeColor:'#95D5B2',hazeOpacity:0.45,darkHazeColor:'#08140D',darkHazeOpacity:0.28,
     surfaceApproach:'screenprint',cloudApproach:'warped_wisps'},
   { name:'Green world', span:[400,66],
-    palette:['#F2E8CF','#2B9348','#105432','#1B4332','#011F15'],
+    palette:['#F2E8CF','#17A75E','#39988F','#318178','#011F15'],
     noiseThresh1:0.46,noiseThresh2:0.56,surfaceIntensity:0.88,
     cloudDensity:0.56,cloudShape:0.50,seed:9.1,useLandSea:1.0,
     hazeColor:'#74C69D',hazeOpacity:0.30,darkHazeColor:'#051208',darkHazeOpacity:0.20,
@@ -312,8 +320,104 @@ const STATES = [
     surfaceApproach:'screenprint',cloudApproach:'warped_wisps'}
 ];
 
-const ORIGINALS = JSON.parse(JSON.stringify(STATES));
-const undoStacks = STATES.map(() => []);
+const FUTURE_STATES = [
+  { name:'Near Earth (early)', span:[0,125],
+    palette:['#F8F9FA','#4DAE82','#0085CB','#0077B6','#041520'],
+    noiseThresh1:0.46,noiseThresh2:0.56,surfaceIntensity:0.82,
+    cloudDensity:0.40,cloudShape:1.00,seed:7.0,useLandSea:1.0,coastSoftness:0.03,
+    hazeColor:'#CAF0F8',hazeOpacity:0.08,darkHazeColor:'#0A0804',darkHazeOpacity:0.30,
+    surfaceApproach:'screenprint',cloudApproach:'warped_wisps'},
+  { name:'Near Earth (late)', span:[125,250],
+    palette:['#FAF5E8','#6AAE5A','#0078B8','#006A9E','#041520'],
+    noiseThresh1:0.46,noiseThresh2:0.56,surfaceIntensity:0.82,
+    cloudDensity:0.40,cloudShape:1.00,seed:7.0,useLandSea:1.0,coastSoftness:0.03,
+    hazeColor:'#E8DCC8',hazeOpacity:0.12,darkHazeColor:'#0A0804',darkHazeOpacity:0.30,
+    surfaceApproach:'screenprint',cloudApproach:'warped_wisps'},
+  { name:'Supercontinent', span:[250,400],
+    palette:['#F0E0C0','#B8865A','#006A9E','#13697C','#081820'],
+    noiseThresh1:0.46,noiseThresh2:0.70,surfaceIntensity:0.80,
+    cloudDensity:0.35,cloudShape:0.60,seed:7.5,useLandSea:1.0,coastSoftness:0.03,
+    hazeColor:'#E0CCA0',hazeOpacity:0.20,darkHazeColor:'#1A1008',darkHazeOpacity:0.40,
+    surfaceApproach:'screenprint',cloudApproach:'warped_wisps'},
+  { name:'Supercontinent breakup', span:[400,500],
+    palette:['#F0E0C0','#B8865A','#006A9E','#13697C','#081820'],
+    noiseThresh1:0.46,noiseThresh2:0.50,surfaceIntensity:0.80,
+    cloudDensity:0.35,cloudShape:0.60,seed:8.0,useLandSea:0.0,coastSoftness:0.03,
+    hazeColor:'#E0CCA0',hazeOpacity:0.20,darkHazeColor:'#1A1008',darkHazeOpacity:0.40,
+    surfaceApproach:'screenprint',cloudApproach:'warped_wisps'},
+  { name:'Late breakup', span:[500,600],
+    palette:['#E0D0B0','#7A8850','#1A6870','#15555B','#061210'],
+    noiseThresh1:0.48,noiseThresh2:0.56,surfaceIntensity:0.72,
+    cloudDensity:0.35,cloudShape:0.40,seed:8.5,useLandSea:0.0,coastSoftness:0.03,
+    hazeColor:'#C8C0A0',hazeOpacity:0.25,darkHazeColor:'#141008',darkHazeOpacity:0.40,
+    surfaceApproach:'screenprint',cloudApproach:'warped_wisps'},
+  { name:'Dying biosphere (early)', span:[600,800],
+    palette:['#D8D4A8','#6A7040','#506068','#415058','#08100C'],
+    noiseThresh1:0.48,noiseThresh2:0.56,surfaceIntensity:0.68,
+    cloudDensity:0.28,cloudShape:0.30,seed:9.0,useLandSea:0.0,
+    hazeColor:'#B8B090',hazeOpacity:0.22,darkHazeColor:'#100C06',darkHazeOpacity:0.38,
+    surfaceApproach:'screenprint',cloudApproach:'warped_layers'},
+  { name:'Dying biosphere (mid)', span:[800,1150],
+    palette:['#D0C0A0','#8A7850','#485860','#39454B','#0A1210'],
+    noiseThresh1:0.50,noiseThresh2:0.60,surfaceIntensity:0.60,
+    cloudDensity:0.20,cloudShape:0.20,seed:9.5,useLandSea:0.0,
+    hazeColor:'#C0B090',hazeOpacity:0.20,darkHazeColor:'#0E0A06',darkHazeOpacity:0.35,
+    surfaceApproach:'screenprint',cloudApproach:'warped_layers'},
+  { name:'Dying biosphere (late)', span:[1150,1500],
+    palette:['#C8A898','#9A8A6A','#505860','#353C40','#0C1418'],
+    noiseThresh1:0.52,noiseThresh2:0.64,surfaceIntensity:0.52,
+    cloudDensity:0.14,cloudShape:0.10,seed:10.0,useLandSea:0.0,
+    hazeColor:'#B8A888',hazeOpacity:0.18,darkHazeColor:'#0C0804',darkHazeOpacity:0.32,
+    surfaceApproach:'screenprint',cloudApproach:'warped_layers'},
+  { name:'Moist greenhouse', span:[1500,2250],
+    palette:['#DDD8C0','#A09080','#708088','#485860','#101820'],
+    noiseThresh1:0.54,noiseThresh2:0.68,surfaceIntensity:0.40,
+    cloudDensity:0.10,cloudShape:0.00,seed:10.5,useLandSea:0.0,
+    hazeColor:'#E0D8D0',hazeOpacity:0.45,darkHazeColor:'#1A1410',darkHazeOpacity:0.50,
+    surfaceApproach:'screenprint',cloudApproach:'warped_layers'},
+  { name:'Dry aftermath', span:[2250,3000],
+    palette:['#C8B890','#B0986A','#908068','#685848','#181010'],
+    noiseThresh1:0.56,noiseThresh2:0.72,surfaceIntensity:0.45,
+    cloudDensity:0.05,cloudShape:0.00,seed:11.0,useLandSea:0.0,
+    hazeColor:'#C8B870',hazeOpacity:0.55,darkHazeColor:'#1A1408',darkHazeOpacity:0.55,
+    surfaceApproach:'screenprint',cloudApproach:'warped'},
+  { name:'Terminal Earth (early)', span:[3000,3650],
+    palette:['#B0987A','#987858','#786050','#584038','#140C08'],
+    noiseThresh1:0.54,noiseThresh2:0.65,surfaceIntensity:0.35,
+    cloudDensity:0.03,cloudShape:0.00,seed:11.5,useLandSea:0.0,
+    hazeColor:'#A89068',hazeOpacity:0.45,darkHazeColor:'#1A1008',darkHazeOpacity:0.50,
+    surfaceApproach:'screenprint',cloudApproach:'warped'},
+  { name:'Terminal Earth (late)', span:[3650,4300],
+    palette:['#8A7060','#704838','#5A3828','#3A2018','#100808'],
+    noiseThresh1:0.52,noiseThresh2:0.58,surfaceIntensity:0.28,
+    cloudDensity:0.00,cloudShape:0.00,seed:12.0,useLandSea:0.0,
+    hazeColor:'#806040',hazeOpacity:0.35,darkHazeColor:'#1A0C06',darkHazeOpacity:0.55,
+    surfaceApproach:'screenprint',cloudApproach:'warped'},
+  { name:'Red Giant', span:[4300,4450],
+    palette:['#2D2D2D','#C84020','#6A1808','#3A0C04','#1A0800'],
+    noiseThresh1:0.75,noiseThresh2:0.78,surfaceIntensity:0.80,
+    cloudDensity:0.00,cloudShape:0.00,seed:12.5,useLandSea:0.0,
+    glowColor:'#E04020',glowStrength:0.40,
+    hazeColor:'#C84020',hazeOpacity:0.50,darkHazeColor:'#1A0808',darkHazeOpacity:0.50,
+    surfaceApproach:'topographic',cloudApproach:'warped_layers'},
+  { name:'Earth destroyed', span:[4450,4540],
+    palette:['#1A1A1A','#8A2010','#3A0C04','#1A0600','#0A0200'],
+    noiseThresh1:0.80,noiseThresh2:0.79,surfaceIntensity:0.60,
+    cloudDensity:0.00,cloudShape:0.00,seed:13.0,useLandSea:0.0,
+    glowColor:'#C83010',glowStrength:0.55,
+    hazeColor:'#6A1808',hazeOpacity:0.40,darkHazeColor:'#0A0404',darkHazeOpacity:0.70,
+    surfaceApproach:'topographic',cloudApproach:'warped_layers'},
+];
+
+const ORIGINALS_PAST = JSON.parse(JSON.stringify(STATES));
+const ORIGINALS_FUTURE = JSON.parse(JSON.stringify(FUTURE_STATES));
+const undoStacksPast = STATES.map(() => []);
+const undoStacksFuture = FUTURE_STATES.map(() => []);
+
+let activeEra = 'past';
+function getStates(){ return activeEra === 'past' ? STATES : FUTURE_STATES; }
+function getOriginals(){ return activeEra === 'past' ? ORIGINALS_PAST : ORIGINALS_FUTURE; }
+function getUndoStacks(){ return activeEra === 'past' ? undoStacksPast : undoStacksFuture; }
 
 const SLOT_LABELS = ['c0','c1','c2','c3'];
 const SURFACE_APPROACHES = [
@@ -348,17 +452,19 @@ function hslToHex(h,s,l){return rgb01ToHex(...hslToRgb(h,s,l))}
 let _undoPushedThisDrag = false;
 function pushUndo(){
   if(_undoPushedThisDrag) return;
-  const snap = JSON.parse(JSON.stringify(STATES[activePhase]));
-  undoStacks[activePhase].push(snap);
-  if(undoStacks[activePhase].length>50) undoStacks[activePhase].shift();
+  const states = getStates();
+  const snap = JSON.parse(JSON.stringify(states[activePhase]));
+  getUndoStacks()[activePhase].push(snap);
+  if(getUndoStacks()[activePhase].length>50) getUndoStacks()[activePhase].shift();
   document.getElementById('btn-undo').disabled = false;
 }
 function popUndo(){
-  const stack = undoStacks[activePhase];
+  const stack = getUndoStacks()[activePhase];
   if(!stack.length) return;
   const snap = stack.pop();
-  Object.assign(STATES[activePhase], snap);
-  STATES[activePhase].palette = snap.palette; // ensure array replaced
+  const states = getStates();
+  Object.assign(states[activePhase], snap);
+  states[activePhase].palette = snap.palette;
   document.getElementById('btn-undo').disabled = !stack.length;
   fullRefresh();
 }
@@ -543,7 +649,7 @@ function compileShader(surfKey, cloudKey){
 
 function renderGlobe(dt){
   if(!gl||!currentProg) return;
-  const s = STATES[activePhase];
+  const s = getStates()[activePhase];
   // West-to-east = positive rotation in scene space. rotY with negative angle
   // makes features move rightward (west→east) when viewed from front.
   surfAngle -= dt * surfaceSpeed * 0.1;
@@ -572,7 +678,7 @@ function renderGlobe(dt){
 }
 
 function updateHazeOverlays(){
-  const s = STATES[activePhase];
+  const s = getStates()[activePhase];
   const lh = document.getElementById('light-haze');
   const dh = document.getElementById('dark-haze');
   if(showLightHaze){
@@ -643,7 +749,7 @@ function applyCurrentColour(){
   const hex=hslToHex(curH,curS,curL).toUpperCase();
   hexInput.value=hex; hexSwatch.style.background=hex;
   updateCrosshair(); updateLightnessBg();
-  const s=STATES[activePhase];
+  const s=getStates()[activePhase];
   if(activeTarget==='hazeColor'){s.hazeColor=hex; updateHazeOverlays();}
   else if(activeTarget==='darkHazeColor'){s.darkHazeColor=hex; updateHazeOverlays();}
   else { s.palette[parseInt(activeTarget[1])]=hex; }
@@ -661,7 +767,7 @@ function setColourFromHex(raw){
 }
 
 function loadColourFromTarget(){
-  const s=STATES[activePhase];
+  const s=getStates()[activePhase];
   let hex;
   if(activeTarget==='hazeColor') hex=s.hazeColor;
   else if(activeTarget==='darkHazeColor') hex=s.darkHazeColor;
@@ -701,10 +807,12 @@ hexInput.addEventListener('keydown',e=>{if(e.key==='Enter'){_undoPushedThisDrag=
 
 function buildPhaseList(){
   const el=document.getElementById('phase-list');el.innerHTML='';
-  STATES.forEach((s,i)=>{
+  const states=getStates();
+  const prefix=activeEra==='future'?'+':'';
+  states.forEach((s,i)=>{
     const div=document.createElement('div');
     div.className='phase-item'+(i===activePhase?' active':'');
-    div.innerHTML=`<span class="phase-index">${String(i+1).padStart(2,'0')}</span><div class="phase-info"><div class="phase-name">${s.name}</div><div class="phase-time">${s.span[0]}\u2013${s.span[1]} Ma</div></div><div class="phase-swatches" data-phase="${i}"></div>`;
+    div.innerHTML=`<span class="phase-index">${String(i+1).padStart(2,'0')}</span><div class="phase-info"><div class="phase-name">${s.name}</div><div class="phase-time">${prefix}${s.span[0]}\u2013${prefix}${s.span[1]} Ma</div></div><div class="phase-swatches" data-phase="${i}"></div>`;
     const sw=div.querySelector('.phase-swatches');
     for(let j=0;j<4;j++){
       const c=document.createElement('div');
@@ -722,7 +830,7 @@ function refreshPhaseSwatches(idx){
   const items=document.querySelectorAll('.phase-item');
   const item=items[idx]; if(!item) return;
   item.querySelectorAll('.phase-swatch').forEach((sw,j)=>{
-    sw.style.background=STATES[idx].palette[j];
+    sw.style.background=getStates()[idx].palette[j];
     sw.classList.toggle('editing',idx===activePhase&&activeTarget==='c'+j);
   });
 }
@@ -733,7 +841,8 @@ function refreshPhaseSwatches(idx){
 
 function buildStrip(){
   const el=document.getElementById('palette-strip'); el.innerHTML='';
-  STATES.forEach((s,i)=>{
+  const states=getStates();
+  states.forEach((s,i)=>{
     const cell=document.createElement('div');
     cell.className='strip-cell'+(i===activePhase?' active':'');
     for(let j=3;j>=0;j--){const band=document.createElement('div');band.className='strip-band';band.style.background=s.palette[j];cell.appendChild(band);}
@@ -744,9 +853,10 @@ function buildStrip(){
 }
 
 function refreshStrip(){
+  const states=getStates();
   document.querySelectorAll('.strip-cell').forEach((cell,i)=>{
     const bands=cell.querySelectorAll('.strip-band');
-    [3,2,1,0].forEach((ci,bi)=>{bands[bi].style.background=STATES[i].palette[ci];});
+    [3,2,1,0].forEach((ci,bi)=>{bands[bi].style.background=states[i].palette[ci];});
     cell.classList.toggle('active',i===activePhase);
   });
 }
@@ -757,17 +867,18 @@ function refreshStrip(){
 
 function refreshPreviewSlots(){
   const container=document.getElementById('preview-slots'); container.innerHTML='';
+  const s=getStates()[activePhase];
   for(let j=0;j<4;j++){
     const slot=document.createElement('div');
     slot.className='preview-slot'+(activeTarget==='c'+j?' active':'');
-    slot.innerHTML=`<div class="preview-slot-circle" style="background:${STATES[activePhase].palette[j]}"></div><div class="preview-slot-label">${SLOT_LABELS[j]}</div>`;
+    slot.innerHTML=`<div class="preview-slot-circle" style="background:${s.palette[j]}"></div><div class="preview-slot-label">${SLOT_LABELS[j]}</div>`;
     slot.addEventListener('click',()=>selectTarget(activePhase,'c'+j));
     container.appendChild(slot);
   }
 }
 
 function refreshHazePickers(){
-  const s=STATES[activePhase];
+  const s=getStates()[activePhase];
   document.getElementById('lh-circle').style.background=s.hazeColor;
   document.getElementById('dh-circle').style.background=s.darkHazeColor;
   document.getElementById('pick-light-haze').classList.toggle('active',activeTarget==='hazeColor');
@@ -783,14 +894,14 @@ document.getElementById('pick-dark-haze').addEventListener('click',()=>selectTar
 
 document.getElementById('lh-opacity-slider').addEventListener('pointerdown',()=>{_undoPushedThisDrag=false;pushUndo();_undoPushedThisDrag=true;});
 document.getElementById('lh-opacity-slider').addEventListener('input',function(){
-  STATES[activePhase].hazeOpacity=this.value/100;
+  getStates()[activePhase].hazeOpacity=this.value/100;
   document.getElementById('lh-opacity-val').textContent=this.value; updateHazeOverlays();
 });
 document.getElementById('lh-opacity-slider').addEventListener('pointerup',()=>{_undoPushedThisDrag=false;});
 
 document.getElementById('dh-opacity-slider').addEventListener('pointerdown',()=>{_undoPushedThisDrag=false;pushUndo();_undoPushedThisDrag=true;});
 document.getElementById('dh-opacity-slider').addEventListener('input',function(){
-  STATES[activePhase].darkHazeOpacity=this.value/100;
+  getStates()[activePhase].darkHazeOpacity=this.value/100;
   document.getElementById('dh-opacity-val').textContent=this.value; updateHazeOverlays();
 });
 document.getElementById('dh-opacity-slider').addEventListener('pointerup',()=>{_undoPushedThisDrag=false;});
@@ -801,7 +912,7 @@ document.getElementById('dh-opacity-slider').addEventListener('pointerup',()=>{_
 
 function buildSurfaceTabs(){
   const el=document.getElementById('surface-tabs'); el.innerHTML='';
-  const s=STATES[activePhase]; const isSdf=s.useLandSea>0;
+  const s=getStates()[activePhase]; const isSdf=s.useLandSea>0;
   SURFACE_APPROACHES.forEach(a=>{
     const btn=document.createElement('div');
     btn.className='approach-tab'+(s.surfaceApproach===a.id?' active':'')+(isSdf&&a.id!=='screenprint'?' disabled':'');
@@ -809,7 +920,7 @@ function buildSurfaceTabs(){
     btn.addEventListener('click',()=>{
       if(isSdf&&a.id!=='screenprint') return;
       _undoPushedThisDrag=false;pushUndo();_undoPushedThisDrag=false;
-      STATES[activePhase].surfaceApproach=a.id;
+      getStates()[activePhase].surfaceApproach=a.id;
       buildSurfaceTabs(); recompileShader();
     });
     el.appendChild(btn);
@@ -818,14 +929,14 @@ function buildSurfaceTabs(){
 
 function buildCloudTabs(){
   const el=document.getElementById('cloud-tabs'); el.innerHTML='';
-  const s=STATES[activePhase];
+  const s=getStates()[activePhase];
   CLOUD_APPROACHES.forEach(a=>{
     const btn=document.createElement('div');
     btn.className='approach-tab'+(s.cloudApproach===a.id?' active':'');
     btn.textContent=a.label;
     btn.addEventListener('click',()=>{
       _undoPushedThisDrag=false;pushUndo();_undoPushedThisDrag=false;
-      STATES[activePhase].cloudApproach=a.id;
+      getStates()[activePhase].cloudApproach=a.id;
       buildCloudTabs(); recompileShader();
     });
     el.appendChild(btn);
@@ -833,7 +944,7 @@ function buildCloudTabs(){
 }
 
 function recompileShader(){
-  const s=STATES[activePhase];
+  const s=getStates()[activePhase];
   compileShader(s.surfaceApproach, s.cloudApproach);
 }
 
@@ -844,7 +955,7 @@ function wirePhaseSlider(sliderId, valId, stateKey, fmt){
   slider.addEventListener('pointerdown',()=>{_undoPushedThisDrag=false;pushUndo();_undoPushedThisDrag=true;});
   slider.addEventListener('input',()=>{
     const v=parseFloat(slider.value);
-    STATES[activePhase][stateKey]=v; valEl.textContent=fmt(v);
+    getStates()[activePhase][stateKey]=v; valEl.textContent=fmt(v);
   });
   slider.addEventListener('pointerup',()=>{_undoPushedThisDrag=false;});
 }
@@ -877,7 +988,7 @@ document.getElementById('tog-lh').addEventListener('change',function(){showLight
 document.getElementById('tog-dh').addEventListener('change',function(){showDarkHaze=this.checked;updateHazeOverlays();});
 
 function loadSlidersFromPhase(){
-  const s=STATES[activePhase];
+  const s=getStates()[activePhase];
   document.getElementById('sl-t1').value=s.noiseThresh1; document.getElementById('val-t1').textContent=s.noiseThresh1.toFixed(2);
   document.getElementById('sl-t2').value=s.noiseThresh2; document.getElementById('val-t2').textContent=s.noiseThresh2.toFixed(2);
   document.getElementById('sl-si').value=s.surfaceIntensity; document.getElementById('val-si').textContent=s.surfaceIntensity.toFixed(2);
@@ -901,14 +1012,16 @@ function selectTarget(phase, target){
     });
   });
 
-  document.getElementById('preview-name').textContent=STATES[phase].name;
-  document.getElementById('preview-span').textContent=STATES[phase].span[0]+'\u2013'+STATES[phase].span[1]+' Ma';
+  const states=getStates();
+  const prefix=activeEra==='future'?'+':'';
+  document.getElementById('preview-name').textContent=states[phase].name;
+  document.getElementById('preview-span').textContent=prefix+states[phase].span[0]+'\u2013'+prefix+states[phase].span[1]+' Ma';
 
   refreshPreviewSlots(); refreshHazePickers(); refreshStrip();
   loadColourFromTarget(); loadSlidersFromPhase();
   buildSurfaceTabs(); buildCloudTabs(); updateHazeOverlays();
 
-  document.getElementById('btn-undo').disabled=!undoStacks[phase].length;
+  document.getElementById('btn-undo').disabled=!getUndoStacks()[phase].length;
 
   if(prevPhase!==phase){
     // Force recompile when switching phases
@@ -933,17 +1046,22 @@ document.getElementById('btn-undo').addEventListener('click',popUndo);
 
 document.getElementById('btn-reset').addEventListener('click',()=>{
   _undoPushedThisDrag=false; pushUndo(); _undoPushedThisDrag=false;
-  const orig=JSON.parse(JSON.stringify(ORIGINALS[activePhase]));
-  Object.keys(orig).forEach(k=>{STATES[activePhase][k]=orig[k];});
+  const orig=JSON.parse(JSON.stringify(getOriginals()[activePhase]));
+  const states=getStates();
+  Object.keys(orig).forEach(k=>{states[activePhase][k]=orig[k];});
   fullRefresh();
 });
 
 document.getElementById('btn-export').addEventListener('click',()=>{
-  const lines=STATES.map((s,i)=>{
-    const p=s.palette.map(c=>`'${c}'`).join(',');
-    return `  // ${s.name} (${s.span[0]}\u2013${s.span[1]} Ma)\n  palette: [${p}],\n  hazeColor: '${s.hazeColor}', hazeOpacity: ${s.hazeOpacity.toFixed(2)},\n  darkHazeColor: '${s.darkHazeColor}', darkHazeOpacity: ${s.darkHazeOpacity.toFixed(2)},\n  noiseThresh1: ${s.noiseThresh1.toFixed(2)}, noiseThresh2: ${s.noiseThresh2.toFixed(2)}, surfaceIntensity: ${s.surfaceIntensity.toFixed(2)},\n  cloudDensity: ${s.cloudDensity.toFixed(2)}, cloudShape: ${s.cloudShape.toFixed(2)},\n  surfaceApproach: '${s.surfaceApproach}', cloudApproach: '${s.cloudApproach}',`;
-  });
-  navigator.clipboard.writeText(lines.join('\n\n')).then(()=>{
+  function formatStates(arr, label){
+    const lines=arr.map((s,i)=>{
+      const p=s.palette.map(c=>`'${c}'`).join(',');
+      return `  // ${s.name} (${s.span[0]}\u2013${s.span[1]} Ma)\n  palette: [${p}],\n  hazeColor: '${s.hazeColor}', hazeOpacity: ${s.hazeOpacity.toFixed(2)},\n  darkHazeColor: '${s.darkHazeColor}', darkHazeOpacity: ${s.darkHazeOpacity.toFixed(2)},\n  noiseThresh1: ${s.noiseThresh1.toFixed(2)}, noiseThresh2: ${s.noiseThresh2.toFixed(2)}, surfaceIntensity: ${s.surfaceIntensity.toFixed(2)},\n  cloudDensity: ${s.cloudDensity.toFixed(2)}, cloudShape: ${s.cloudShape.toFixed(2)},\n  surfaceApproach: '${s.surfaceApproach}', cloudApproach: '${s.cloudApproach}',`;
+    });
+    return `// === ${label} ===\n\n`+lines.join('\n\n');
+  }
+  const output=formatStates(STATES,'STATES (Past)')+'\n\n\n'+formatStates(FUTURE_STATES,'FUTURE_STATES (Future)');
+  navigator.clipboard.writeText(output).then(()=>{
     const btn=document.getElementById('btn-export');
     btn.classList.add('copied');btn.textContent='Copied!';
     setTimeout(()=>{btn.classList.remove('copied');btn.textContent='Copy palette JS';},2000);
@@ -957,12 +1075,32 @@ document.getElementById('btn-export').addEventListener('click',()=>{
 document.addEventListener('keydown',e=>{
   if(e.target.tagName==='INPUT') return;
   const targets=['c0','c1','c2','c3','hazeColor','darkHazeColor'];
-  if(e.key==='ArrowDown'||e.key==='j'){e.preventDefault();selectTarget(Math.min(activePhase+1,STATES.length-1),activeTarget);document.querySelectorAll('.phase-item')[activePhase]?.scrollIntoView({block:'nearest'});}
+  if(e.key==='ArrowDown'||e.key==='j'){e.preventDefault();selectTarget(Math.min(activePhase+1,getStates().length-1),activeTarget);document.querySelectorAll('.phase-item')[activePhase]?.scrollIntoView({block:'nearest'});}
   if(e.key==='ArrowUp'||e.key==='k'){e.preventDefault();selectTarget(Math.max(activePhase-1,0),activeTarget);document.querySelectorAll('.phase-item')[activePhase]?.scrollIntoView({block:'nearest'});}
   if(e.key==='ArrowRight'||e.key==='l'){e.preventDefault();const idx=targets.indexOf(activeTarget);if(idx<targets.length-1)selectTarget(activePhase,targets[idx+1]);}
   if(e.key==='ArrowLeft'||e.key==='h'){e.preventDefault();const idx=targets.indexOf(activeTarget);if(idx>0)selectTarget(activePhase,targets[idx-1]);}
   if((e.metaKey||e.ctrlKey)&&e.key==='z'){e.preventDefault();popUndo();}
 });
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ERA TABS
+// ═══════════════════════════════════════════════════════════════════════════
+
+function switchEra(era){
+  if(era===activeEra) return;
+  activeEra=era;
+  document.getElementById('tab-past').classList.toggle('active',era==='past');
+  document.getElementById('tab-future').classList.toggle('active',era==='future');
+  const states=getStates();
+  document.getElementById('header-count').textContent=`Phase palette + shader editor — ${states.length} states`;
+  activePhase=0; activeTarget='c1';
+  buildPhaseList(); buildStrip();
+  currentSurfKey=''; currentCloudKey='';
+  selectTarget(0,'c1');
+}
+
+document.getElementById('tab-past').addEventListener('click',()=>switchEra('past'));
+document.getElementById('tab-future').addEventListener('click',()=>switchEra('future'));
 
 // ═══════════════════════════════════════════════════════════════════════════
 // INIT
