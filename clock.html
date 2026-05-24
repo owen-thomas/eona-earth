@@ -1275,7 +1275,7 @@
       float fbm(vec3 p) {
         float v = 0.0;
         float a = 0.5;
-        for (int i = 0; i < 4; i++) {
+        for (int i = 0; i < 2; i++) {
           v += a * noise3d(p);
           p *= 2.02;
           a *= 0.5;
@@ -1560,20 +1560,29 @@
         float sdfSampleFuture = mix(futureSdfA, futureSdfB, futureSdfBlend);
         float sdfSample = mix(sdfSamplePast, sdfSampleFuture, futureSdfWeight);
 
-        // Dual render — each state with its own stable seed. The SDF is shared
-        // between both renders; per-state useLandSea controls whether this
-        // state uses the data path or ignores it.
-        // Surface blend — uses stateBlend
+        // Single-pass render (Pi mode) — stateBlend is held at 0 by JS, which
+        // snaps to the dominant state instead of cross-fading. The B-side path
+        // is guarded so SwiftShader skips it entirely when not needed,
+        // saving roughly half the per-pixel work.
         vec3 colA = renderSurface(p, aC0, aC1, aC2, aC3, aSurfIntens, aSeed, sdfSample, aUseLandSea, aCoastSoft, aNoiseThresh1, aNoiseThresh2, aSurfApproach);
-        vec3 colB = renderSurface(p, bC0, bC1, bC2, bC3, bSurfIntens, bSeed, sdfSample, bUseLandSea, bCoastSoft, bNoiseThresh1, bNoiseThresh2, bSurfApproach);
-        vec3 col = mix(colA, colB, stateBlend);
+        vec3 col;
+        if (stateBlend > 0.001) {
+          vec3 colB = renderSurface(p, bC0, bC1, bC2, bC3, bSurfIntens, bSeed, sdfSample, bUseLandSea, bCoastSoft, bNoiseThresh1, bNoiseThresh2, bSurfApproach);
+          col = mix(colA, colB, stateBlend);
+        } else {
+          col = colA;
+        }
 
-        // Atmosphere blend — leads surface by 20% of the blend window.
-        // Cloud masks computed per-state (stable seeds) then mixed by atmosphereBlend.
+        // Atmosphere — same guard; B-side cloud pass skipped when blend = 0.
         float cloudMaskA = computeCloudMask(p, aCloudDens, aCloudShape, aSeed, aCloudApproach);
-        float cloudMaskB = computeCloudMask(p, bCloudDens, bCloudShape, bSeed, bCloudApproach);
-        float cloudMask  = mix(cloudMaskA, cloudMaskB, atmosphereBlend);
-        vec3  c0Mixed    = mix(aC0, bC0, atmosphereBlend);
+        float cloudMask;
+        if (atmosphereBlend > 0.001) {
+          float cloudMaskB = computeCloudMask(p, bCloudDens, bCloudShape, bSeed, bCloudApproach);
+          cloudMask = mix(cloudMaskA, cloudMaskB, atmosphereBlend);
+        } else {
+          cloudMask = cloudMaskA;
+        }
+        vec3 c0Mixed = mix(aC0, bC0, atmosphereBlend);
         col = mix(col, c0Mixed, cloudMask * 0.92);
 
         // Polar ice — also uses atmosphereBlend so caps shift with the atmosphere.
@@ -1630,8 +1639,11 @@
         antialias: false,
         alpha: true
       });
-      earthRenderer.setSize(size, size);
+      // Render at half resolution and CSS-scale up — 4× fewer pixels to shade.
+      earthRenderer.setSize(Math.floor(size * 0.5), Math.floor(size * 0.5));
       earthRenderer.setPixelRatio(1);
+      canvas.style.width = size + 'px';
+      canvas.style.height = size + 'px';
       
       // Create sphere with custom shader material
       const geometry = new THREE.SphereGeometry(1, 32, 32);
@@ -1752,7 +1764,9 @@
       // Handle resize
       window.addEventListener('resize', () => {
         const newSize = container.offsetWidth || 150;
-        earthRenderer.setSize(newSize, newSize);
+        earthRenderer.setSize(Math.floor(newSize * 0.5), Math.floor(newSize * 0.5));
+        canvas.style.width = newSize + 'px';
+        canvas.style.height = newSize + 'px';
       });
     }
     
@@ -1793,8 +1807,11 @@
         u[prefix + 'SurfApproach'].value  = SURF_APPROACH_ID[S.surfaceApproach ?? 'screenprint'] ?? 0.0;
         u[prefix + 'CloudApproach'].value = CLOUD_APPROACH_ID[S.cloudApproach ?? 'warped_wisps'] ?? 3.0;
       }
-      setState('a', A, useLandSeaOverrideA);
-      setState('b', B, useLandSeaOverrideB);
+      // Pi mode: snap to whichever state is dominant rather than cross-fading.
+      // Avoids the dual-render cost; the shader B-side guard skips that pass.
+      const snapState = t < 0.5 ? A : B;
+      const snapOverride = t < 0.5 ? useLandSeaOverrideA : useLandSeaOverrideB;
+      setState('a', snapState, snapOverride);
 
       // === ATMOSPHERIC GLOW ===
       // Interpolate glow strength and colour between A and B states.
@@ -1898,8 +1915,8 @@
         c4a[1] + (c4b[1] - c4a[1]) * t,
         c4a[2] + (c4b[2] - c4a[2]) * t
       );
-      u.stateBlend.value = t;
-      u.atmosphereBlend.value = vs.atmosphereBlend ?? t;
+      u.stateBlend.value = 0;
+      u.atmosphereBlend.value = 0;
 
       // Paleogeographic SDF indexing — driven purely by Ma, independent of
       // which palette state we're in. For Ma > 635 we hold at the oldest slice
