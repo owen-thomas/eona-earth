@@ -113,8 +113,22 @@ GPU process exited unexpectedly: exit_code=512
 **Fix:** `--disable-gpu --enable-unsafe-swiftshader` in the Chromium launch flags. This forces software (CPU) rendering via SwiftShader. Stable but slower than hardware rendering.
 
 ### Performance
-SwiftShader (CPU rendering) is slower than GPU. The render loop is capped at 15fps. Scrubbing performance may be suboptimal. Potential improvements:
-- Further shader simplification (reduce noise octaves, disable dual-render transition)
+SwiftShader (CPU rendering) is slower than GPU. The render loop is capped at 15fps.
+
+**Shader optimisations applied to `clock.html` (not `eona.html`):**
+- Three.js and fonts bundled locally (no CDN dependency)
+- `antialias: false`, `pixelRatio: 1`
+- Sphere geometry reduced 64×64 → 32×32
+- Globe renders at half resolution, CSS-scaled up (4× fewer pixels)
+- fbm noise octaves reduced 4 → 2
+- Dual-render disabled: JS snaps to dominant state, shader skips B-side pass
+- `ridgedFbm` octaves reduced 5 → 4
+
+Result: performance improved from ~2fps to usable, but still laggy under SwiftShader.
+
+**Next steps to try:**
+- Remove `--disable-gpu` to attempt hardware rendering with simplified shader
+- Fit a heatsink — Pi runs very hot under SwiftShader load and likely thermal throttles
 - Upgrade to Pi 5 (VideoCore VII handles the shader without crashing)
 
 ### Cron F5 refresh broken on Wayland
