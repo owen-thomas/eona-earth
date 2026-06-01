@@ -141,6 +141,19 @@ Result: HTML file 4× smaller; shader substantially simpler; no ridged multifrac
 - Remove `--disable-gpu` to attempt hardware rendering with simplified shader
 - Upgrade to Pi 5 (VideoCore VII handles the shader without crashing)
 
+### Future states broken (needs fix)
+The Pi simplification removed the `isFuture` dispatch in `updateEarth()`. The function now always calls `getVisualState(ma)` regardless of sign, so when `ma < 0` (the future half of the 24-hour clock, roughly 12:00–24:00) it falls through to the last STATES entry (Modern Earth) instead of dispatching to `FUTURE_STATES` via `getFutureVisualState()`. The globe just shows Modern Earth throughout the entire future half.
+
+**Fix needed:** Restore the `isFuture` branch in `updateEarth()`:
+```js
+const isFuture = ma < 0;
+const vs = isFuture ? getFutureVisualState(-ma) : getVisualState(ma);
+const stateArr = isFuture ? FUTURE_STATES : STATES;
+const A = stateArr[vs.a];
+const B = stateArr[vs.b];
+```
+The rest of `updateEarth` (glow, haze, SDF, opacity fade) also needs the `isFuture`/`futureMa` locals restored where they were referenced. The SDF opacity fade for future states used `futureMa` — that logic was also removed and should be reinstated.
+
 ### Cron F5 refresh broken on Wayland
 `xdotool key F5` requires X11. On Wayland it silently does nothing. The git pull works fine but Chromium won't reload after an auto-update. Workaround: manually reboot or SSH in and `sudo reboot`.
 
