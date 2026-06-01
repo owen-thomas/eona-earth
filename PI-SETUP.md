@@ -125,8 +125,6 @@ SwiftShader (CPU rendering) is slower than GPU. The render loop is capped at 15f
 - `ridgedFbm` octaves reduced 5 → 4
 
 **Further simplifications to fix white-square issue (white = shader compile failure on SwiftShader):**
-- Removed `FUTURE_SDF_ATLAS_BASE64` — was 1.8 MB embedded in HTML; file now 555 KB (was 2.3 MB)
-- Removed `futureSdfAtlas` sampler2D uniform and `sampleFutureSdf()` shader function
 - Removed `ridgedNoise` and `ridgedFbm` functions from shader (were used by topographic/warped_wisps)
 - Removed `topographic` and `watercolor` surface approach branches from `renderSurface()`
 - Removed `ridged_wisps` and `warped_wisps` cloud approach branches from `computeCloudMask()`
@@ -134,25 +132,23 @@ SwiftShader (CPU rendering) is slower than GPU. The render loop is capped at 15f
 - All STATES and FUTURE_STATES updated: topographic/watercolor → screenprint, warped_wisps → warped; noiseThresh values corrected for screenprint fbm distribution
 - Added explicit `setClearColor(0x000000, 0)` on the WebGL renderer
 
-Result: HTML file 4× smaller; shader substantially simpler; no ridged multifractal anywhere.
+Result: shader substantially simpler; no ridged multifractal anywhere.
+
+**Partially restored after white-square fix:**
+- `FUTURE_SDF_ATLAS_BASE64` restored (1.73 MB) — file now ~2.3 MB. The atlas is pure data with no effect on shader complexity, so it does not risk the white-square failure.
+- `futureSdfAtlas` sampler2D uniform and `sampleFutureSdf()` shader function restored alongside it.
+- `isFuture` dispatch restored in `updateEarth()` — future half now correctly routes through `getFutureVisualState()` / `FUTURE_STATES` instead of falling through to Modern Earth.
+- `FUTURE_STATES` `useLandSea` values fixed: F1a, F1b, F2a set to `1.0` (within SDF data range 0–250 Ma); remainder remain `0.0`.
+- Cloud density reduced on warped post-snowball and near-earth states (warped clouds appear heavier than warped_wisps at the same density): Hothouse 0.46→0.33, Green World 0.56→0.40, Modern Earth 0.46→0.33, Near Earth (early/late) 0.55→0.39.
+- All `cloudShape` values set to `0.00` across all states.
 
 **Next steps to try:**
 - Fit a heatsink — Pi runs very hot under SwiftShader load and likely thermal throttles
 - Remove `--disable-gpu` to attempt hardware rendering with simplified shader
 - Upgrade to Pi 5 (VideoCore VII handles the shader without crashing)
 
-### Future states broken (needs fix)
-The Pi simplification removed the `isFuture` dispatch in `updateEarth()`. The function now always calls `getVisualState(ma)` regardless of sign, so when `ma < 0` (the future half of the 24-hour clock, roughly 12:00–24:00) it falls through to the last STATES entry (Modern Earth) instead of dispatching to `FUTURE_STATES` via `getFutureVisualState()`. The globe just shows Modern Earth throughout the entire future half.
-
-**Fix needed:** Restore the `isFuture` branch in `updateEarth()`:
-```js
-const isFuture = ma < 0;
-const vs = isFuture ? getFutureVisualState(-ma) : getVisualState(ma);
-const stateArr = isFuture ? FUTURE_STATES : STATES;
-const A = stateArr[vs.a];
-const B = stateArr[vs.b];
-```
-The rest of `updateEarth` (glow, haze, SDF, opacity fade) also needs the `isFuture`/`futureMa` locals restored where they were referenced. The SDF opacity fade for future states used `futureMa` — that logic was also removed and should be reinstated.
+### ~~Future states broken~~ (resolved)
+Fixed — see "Partially restored" notes in the Performance section above.
 
 ### Cron F5 refresh broken on Wayland
 `xdotool key F5` requires X11. On Wayland it silently does nothing. The git pull works fine but Chromium won't reload after an auto-update. Workaround: manually reboot or SSH in and `sudo reboot`.
