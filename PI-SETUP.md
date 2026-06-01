@@ -124,11 +124,21 @@ SwiftShader (CPU rendering) is slower than GPU. The render loop is capped at 15f
 - Dual-render disabled: JS snaps to dominant state, shader skips B-side pass
 - `ridgedFbm` octaves reduced 5 → 4
 
-Result: performance improved from ~2fps to usable, but still laggy under SwiftShader.
+**Further simplifications to fix white-square issue (white = shader compile failure on SwiftShader):**
+- Removed `FUTURE_SDF_ATLAS_BASE64` — was 1.8 MB embedded in HTML; file now 555 KB (was 2.3 MB)
+- Removed `futureSdfAtlas` sampler2D uniform and `sampleFutureSdf()` shader function
+- Removed `ridgedNoise` and `ridgedFbm` functions from shader (were used by topographic/warped_wisps)
+- Removed `topographic` and `watercolor` surface approach branches from `renderSurface()`
+- Removed `ridged_wisps` and `warped_wisps` cloud approach branches from `computeCloudMask()`
+- Removed `aSurfApproach`/`bSurfApproach` uniforms (screenprint is now the only surface approach)
+- All STATES and FUTURE_STATES updated: topographic/watercolor → screenprint, warped_wisps → warped; noiseThresh values corrected for screenprint fbm distribution
+- Added explicit `setClearColor(0x000000, 0)` on the WebGL renderer
+
+Result: HTML file 4× smaller; shader substantially simpler; no ridged multifractal anywhere.
 
 **Next steps to try:**
-- Remove `--disable-gpu` to attempt hardware rendering with simplified shader
 - Fit a heatsink — Pi runs very hot under SwiftShader load and likely thermal throttles
+- Remove `--disable-gpu` to attempt hardware rendering with simplified shader
 - Upgrade to Pi 5 (VideoCore VII handles the shader without crashing)
 
 ### Cron F5 refresh broken on Wayland
