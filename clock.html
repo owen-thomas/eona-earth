@@ -1445,6 +1445,10 @@
       }
 
       void main() {
+        // Trivial output — testing whether crash is shader code or texture/setup.
+        gl_FragColor = vec4(0.2, 0.5, 1.0, 1.0);
+        return;
+
         vec3 p = normalize(vPosition);
 
         float sdfA = sampleSdf(p, sdfIndexA);
