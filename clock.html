@@ -1445,12 +1445,9 @@
       }
 
       void main() {
-        // Trivial output — testing whether crash is shader code or texture/setup.
-        gl_FragColor = vec4(0.2, 0.5, 1.0, 1.0);
-        return;
-
         vec3 p = normalize(vPosition);
 
+        // Test SDF sampling only — checking if atan2/asin/texture2D causes crash.
         float sdfA = sampleSdf(p, sdfIndexA);
         float sdfB = sampleSdf(p, sdfIndexB);
         float sdfSamplePast = mix(sdfA, sdfB, sdfBlend);
@@ -1458,6 +1455,8 @@
         float futureSdfB = sampleFutureSdf(p, futureSdfIndexB);
         float sdfSampleFuture = mix(futureSdfA, futureSdfB, futureSdfBlend);
         float sdfSample = mix(sdfSamplePast, sdfSampleFuture, futureSdfWeight);
+        gl_FragColor = vec4(sdfSample, sdfSample, sdfSample, 1.0);
+        return;
 
         // Single-pass render (Pi mode) — stateBlend is held at 0 by JS, which
         // snaps to the dominant state instead of cross-fading. The B-side path
