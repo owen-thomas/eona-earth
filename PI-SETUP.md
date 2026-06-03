@@ -115,12 +115,16 @@ cd ~/eona && git pull && sudo reboot
 
 ## Known Issues
 
-### ~~White square / GPU crash~~ (resolved by Pi 5 upgrade)
-On Pi 4, VideoCore VI crashed the GPU process with the Three.js WebGL shader (`exit_code=512`). Falling back to SwiftShader (CPU rendering) also failed — SwiftShader's shader compiler couldn't handle the fbm + cloud + SDF complexity even after significant simplification.
+### ~~White square / GPU crash~~ (resolved — see below)
+On Pi 4, VideoCore VI crashed the GPU process with the Three.js WebGL shader (`exit_code=512`). Falling back to SwiftShader (CPU rendering) also failed.
 
-**Root cause:** VideoCore VI is not capable of compiling/running this shader under Chromium. Neither hardware nor software WebGL paths worked on Pi 4.
+**Root cause (Pi 4):** VideoCore VI is not capable of compiling/running this shader under Chromium. Dead end — no fix possible.
 
-**Fix:** Pi 5 with VideoCore VII and Mesa drivers handles hardware WebGL without issue. No shader simplifications or fallback flags required.
+**Root cause (Pi 5):** Same `exit_code=512` GPU crash initially. After binary-search isolation across shader sections, the culprit is `computeCloudMask()`. The V3D GLSL compiler inlines the full function body (4 branches, multiple fbm calls), exceeding V3D's shader instruction limit — even when `CLOUDS_ENABLED = false` and the function returns immediately at runtime. The early `return 0.0` does not prevent compilation of the full inlined body.
+
+**Current workaround:** `CLOUDS_ENABLED = false` + `float cloudMask = 0.0` hardcoded in `main()`, bypassing the call entirely. CSS glow also temporarily disabled (not the crash cause — safe to re-enable). Globe is stable.
+
+**Proper fix (next session):** Make the cloud shader conditional in the JS shader string. When `CLOUDS_ENABLED = false`, omit `computeCloudMask()` from the GLSL entirely using a template literal conditional — so V3D never compiles it. Desktop (`CLOUDS_ENABLED = true`) gets the full shader unchanged. Also consider a simplified single-branch cloud shader for Pi that stays within V3D's instruction limit.
 
 ### ~~Performance / 15fps cap~~ (resolved by Pi 5 upgrade)
 The 15fps cap in `clock.html` was set for SwiftShader CPU rendering on Pi 4. With Pi 5 hardware rendering this cap can be lifted — to be confirmed on first boot.
@@ -136,18 +140,26 @@ On this Pi OS version, the package and command are `chromium`, not `chromium-bro
 
 ---
 
-## Pi 5 Installation (next session)
+## Pi 5 Installation Status
 
-- [ ] Mount Pi 5 to display via existing standoffs (confirm clearance with M.2 + cooler)
-- [ ] Connect M.2 adapter FFC cable to Pi 5 PCIe connector
-- [ ] Seat Kingston 2230 NVMe in M.2 slot
-- [ ] Flash Pi OS to NVMe (via rpi-imager from existing SD card, or image directly from Mac)
-- [ ] Set boot order to prefer NVMe (`raspi-config` → Advanced → Boot Order)
-- [ ] Clone repo, restore autostart, confirm clock loads
-- [ ] Remove `--disable-gpu` and `--enable-unsafe-swiftshader` from autostart (not needed on Pi 5)
-- [ ] Confirm WebGL renders correctly (no white square)
+- [x] Mount Pi 5 to display via existing standoffs
+- [x] Connect M.2 adapter FFC cable to Pi 5 PCIe connector
+- [x] Connect active cooler fan header + 5V/GND GPIO power
+- [x] Boot from SD card — clock loads, globe stable
+- [ ] Seat Kingston 2230 NVMe in M.2 slot (SSD not yet arrived)
+- [ ] Flash Pi OS to NVMe and set boot order (`raspi-config` → Advanced → Boot Order)
 - [ ] Check `aplay -l` for HDMI audio device (for future speaker work)
-- [ ] Consider lifting 15fps cap in `clock.html` if performance allows
+
+## Next Session — Shader Fix
+
+**Goal:** Re-enable clouds on Pi without crashing V3D.
+
+**Steps:**
+1. In `clock.html`, make the cloud shader conditional on `CLOUDS_ENABLED` at the JS level — use template literals to omit `computeCloudMask()` from the GLSL string entirely when `CLOUDS_ENABLED = false`. The function must not exist in the compiled shader, not just return early.
+2. Re-enable the CSS glow filter (disabled as a test — not the crash cause, safe to restore).
+3. Once the conditional shader works, test whether a simplified cloud shader (single branch, fewer fbm calls) stays within V3D's instruction limit with `CLOUDS_ENABLED = true`.
+4. Remove `webgl-test.html` (diagnostic file, no longer needed).
+5. Lift the 15fps cap if performance allows.
 
 ---
 
