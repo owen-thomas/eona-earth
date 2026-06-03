@@ -1461,9 +1461,6 @@
         // is guarded so SwiftShader skips it entirely when not needed,
         // saving roughly half the per-pixel work.
         vec3 colA = renderSurface(p, aC0, aC1, aC2, aC3, aSurfIntens, aSeed, sdfSample, aUseLandSea, aCoastSoft, aNoiseThresh1, aNoiseThresh2);
-        gl_FragColor = vec4(colA, 1.0);
-        return;
-
         vec3 col;
         if (stateBlend > 0.001) {
           vec3 colB = renderSurface(p, bC0, bC1, bC2, bC3, bSurfIntens, bSeed, sdfSample, bUseLandSea, bCoastSoft, bNoiseThresh1, bNoiseThresh2);
