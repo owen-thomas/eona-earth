@@ -1480,6 +1480,8 @@
         }
         vec3 c0Mixed = mix(aC0, bC0, atmosphereBlend);
         col = mix(col, c0Mixed, cloudMask * 0.92);
+        gl_FragColor = vec4(col, 1.0);
+        return;
 
         // Polar ice — also uses atmosphereBlend so caps shift with the atmosphere.
         float polarIceMixed = mix(aPolarIce, bPolarIce, atmosphereBlend);
