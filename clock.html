@@ -840,7 +840,7 @@
         glowStrength: 0.0,
         hazeColor: '#E0FAFF', hazeOpacity: 0.48,
         darkHazeColor: '#151821', darkHazeOpacity: 0,
-        cloudDensity: 0.70, cloudShape: 0.00, polarIce: 0.0, seed: 7.3,
+        cloudDensity: 0.70, cloudShape: 1.00, polarIce: 0.0, seed: 7.3,
         useLandSea: 0.35, coastSoftness: 0.01,
         surfaceApproach: 'screenprint', cloudApproach: 'warped' },
 
@@ -852,7 +852,7 @@
         glowStrength: 0.0,
         hazeColor: '#95D5B2', hazeOpacity: 0.45,
         darkHazeColor: '#08140D', darkHazeOpacity: 0,
-        cloudDensity: 0.33, cloudShape: 0.00, polarIce: 0.0, seed: 8.4,
+        cloudDensity: 0.46, cloudShape: 0.35, polarIce: 0.0, seed: 8.4,
         useLandSea: 1.0, coastSoftness: 0.01,
         surfaceApproach: 'screenprint', cloudApproach: 'warped' },
 
@@ -864,7 +864,7 @@
         glowStrength: 0.0,
         hazeColor: '#74C69D', hazeOpacity: 0.30,
         darkHazeColor: '#051208', darkHazeOpacity: 0,
-        cloudDensity: 0.40, cloudShape: 0.00, polarIce: 0.0, seed: 9.1,
+        cloudDensity: 0.56, cloudShape: 0.50, polarIce: 0.0, seed: 9.1,
         useLandSea: 1.0, coastSoftness: 0.01,
         surfaceApproach: 'screenprint', cloudApproach: 'warped' },
 
@@ -876,7 +876,7 @@
         glowStrength: 0.0,
         hazeColor: '#CAF0F8', hazeOpacity: 0.08,
         darkHazeColor: '#020408', darkHazeOpacity: 0,
-        cloudDensity: 0.33, cloudShape: 0.00, polarIce: 0.85, seed: 10.5,
+        cloudDensity: 0.46, cloudShape: 1.00, polarIce: 0.85, seed: 10.5,
         useLandSea: 1.0, coastSoftness: 0.01,
         surfaceApproach: 'screenprint', cloudApproach: 'warped' }
     ];
@@ -893,7 +893,7 @@
         hazeColor: '#CAF0F8', hazeOpacity: 0.08,
         darkHazeColor: '#0A0804', darkHazeOpacity: 0.30,
         noiseThresh1: 0.46, noiseThresh2: 0.56, surfaceIntensity: 1.00,
-        cloudDensity: 0.39, cloudShape: 0.00, polarIce: 0.0,
+        cloudDensity: 0.55, cloudShape: 1.00, polarIce: 0.0,
         useLandSea: 1.0, coastSoftness: 0.03,
         surfaceApproach: 'screenprint', cloudApproach: 'warped',
         seed: 7.0 },
@@ -907,7 +907,7 @@
         hazeColor: '#E8DCC8', hazeOpacity: 0.12,
         darkHazeColor: '#0A0804', darkHazeOpacity: 0.30,
         noiseThresh1: 0.46, noiseThresh2: 0.56, surfaceIntensity: 1.00,
-        cloudDensity: 0.39, cloudShape: 0.00, polarIce: 0.0,
+        cloudDensity: 0.55, cloudShape: 1.00, polarIce: 0.0,
         useLandSea: 1.0, coastSoftness: 0.03,
         surfaceApproach: 'screenprint', cloudApproach: 'warped',
         seed: 7.0 },
@@ -921,7 +921,7 @@
         darkHazeColor: '#1A1008', darkHazeOpacity: 0.40,
         noiseThresh1: 0.46, noiseThresh2: 0.70,
         surfaceIntensity: 1.00,
-        cloudDensity: 0.45, cloudShape: 0.00, polarIce: 0.0,
+        cloudDensity: 0.45, cloudShape: 0.60, polarIce: 0.0,
         useLandSea: 1.0, coastSoftness: 0.03,
         surfaceApproach: 'screenprint', cloudApproach: 'warped',
         seed: 7.5 },
@@ -937,7 +937,7 @@
         darkHazeColor: '#1A1008', darkHazeOpacity: 0.40,
         noiseThresh1: 0.46, noiseThresh2: 0.50,
         surfaceIntensity: 1.00,
-        cloudDensity: 0.45, cloudShape: 0.00, polarIce: 0.0,
+        cloudDensity: 0.45, cloudShape: 0.60, polarIce: 0.0,
         useLandSea: 0.0, coastSoftness: 0.03,
         surfaceApproach: 'screenprint', cloudApproach: 'warped',
         seed: 8.0 },
@@ -952,7 +952,7 @@
         darkHazeColor: '#141008', darkHazeOpacity: 0.40,
         noiseThresh1: 0.48, noiseThresh2: 0.56,
         surfaceIntensity: 1.00,
-        cloudDensity: 0.35, cloudShape: 0.00, polarIce: 0.0,
+        cloudDensity: 0.35, cloudShape: 0.40, polarIce: 0.0,
         useLandSea: 0.0, coastSoftness: 0.03,
         surfaceApproach: 'screenprint', cloudApproach: 'warped',
         seed: 8.5 },
@@ -1350,8 +1350,6 @@
       // 3.0 = warped_wisps   (warped body + ridged detail + edge erosion)
       ${CLOUDS_ENABLED ? `float computeCloudMask(vec3 p, float cloudDens, float cloudShp, float seed, float cloudApproach) {
         if (cloudDens < 0.001) return 0.0;
-        // Warped wisps needs higher density to be visible — scale up uniformly.
-        cloudDens = min(cloudDens * 1.8, 0.95);
         vec3 cp = rotateY(p, cloudRotation);
         vec3 sOff = vec3(seed * 13.7, seed * 7.3, seed * 19.1)
                   + vec3(time * 0.004, time * 0.003, time * 0.0025);
