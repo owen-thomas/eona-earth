@@ -1270,6 +1270,16 @@
       float fbm2(vec3 p) {
         return noise3d(p) * 0.65 + noise3d(p * 2.1 + vec3(11.0)) * 0.35;
       }
+      float ridgedNoise(vec3 p) {
+        return 1.0 - abs(noise3d(p) * 2.0 - 1.0);
+      }
+      // 2-octave ridged fbm — gives cloud edges a brushstroke crease without
+      // the 5-octave version's instruction cost (Pi V3D budget).
+      float ridgedFbm2(vec3 p) {
+        float n0 = ridgedNoise(p);
+        float n1 = ridgedNoise(p * 2.2 + vec3(7.3)) * 0.45;
+        return (n0 + n1) / 1.45;
+      }
 
 
       // === SCREEN-SPACE RISO GRAIN ===
@@ -1340,16 +1350,17 @@
       // 3.0 = warped_wisps   (warped body + ridged detail + edge erosion)
       ${CLOUDS_ENABLED ? `float computeCloudMask(vec3 p, float cloudDens, float cloudShp, float seed, float cloudApproach) {
         if (cloudDens < 0.001) return 0.0;
+        // Warped wisps needs higher density to be visible — scale up uniformly.
+        cloudDens = min(cloudDens * 1.8, 0.95);
         vec3 cp = rotateY(p, cloudRotation);
         vec3 sOff = vec3(seed * 13.7, seed * 7.3, seed * 19.1)
                   + vec3(time * 0.004, time * 0.003, time * 0.0025);
         float yAniso = mix(3.0, 1.0, cloudShp);
         float latFade = 1.0 - pow(abs(cp.y), 3.0) * 0.25;
 
-        // Single warped branch — all cloudApproach variants collapsed to this
-        // for Pi V3D compatibility. The multi-branch version exceeds V3D's
-        // shader instruction limit even after the JS-level conditional removed
-        // the function when CLOUDS_ENABLED=false.
+        // Warped wisps — single branch for Pi V3D compatibility.
+        // ridgedFbm2 (2-octave) used instead of full 5-octave ridgedFbm to
+        // stay within V3D's shader instruction budget.
         float warpStrength = mix(0.35, 1.6, cloudShp);
         vec3 warp = vec3(
           fbm(cp * 1.8 + sOff),
@@ -1360,10 +1371,14 @@
         float cA = fbm2(sp * 2.0);
         vec3 sp2 = vec3(cp.x * 0.7, cp.y * yAniso * 0.55, cp.z * 0.7) + warp * warpStrength * 0.6;
         float cB = fbm2(sp2 + sOff * 0.1);
-        float cC = fbm(cp * 6.5 + sOff * 0.7 + vec3(55.0));
-        float field = cA * 0.60 + cB * 0.30 + cC * 0.18;
+        float yStr = mix(1.6, 1.0, cloudShp);
+        vec3 rp = vec3(sp.x, sp.y * yStr, sp.z);
+        float ridgeDetail = ridgedFbm2(rp * 3.0 + sOff * 0.6);
+        float field = cA * 0.48 + cB * 0.22 + ridgeDetail * 0.30;
+        float erosion = ridgedFbm2(cp * 5.0 + sOff * 0.4 + vec3(42.0));
+        field = field * (0.7 + erosion * 0.3);
         float thresh = mix(0.78, 0.18, cloudDens);
-        float mask = smoothstep(thresh, thresh + 0.04, field) * latFade;
+        float mask = smoothstep(thresh, thresh + 0.06, field) * latFade;
 
         // Subtle opacity pulse — ±5% over ~35 s period
         mask *= 1.0 + 0.05 * sin(time * 0.18);
