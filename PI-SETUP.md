@@ -150,16 +150,25 @@ On this Pi OS version, the package and command are `chromium`, not `chromium-bro
 - [ ] Flash Pi OS to NVMe and set boot order (`raspi-config` → Advanced → Boot Order)
 - [ ] Check `aplay -l` for HDMI audio device (for future speaker work)
 
-## Next Session — Shader Fix
+## Shader Fix — Progress
 
 **Goal:** Re-enable clouds on Pi without crashing V3D.
 
 **Steps:**
-1. In `clock.html`, make the cloud shader conditional on `CLOUDS_ENABLED` at the JS level — use template literals to omit `computeCloudMask()` from the GLSL string entirely when `CLOUDS_ENABLED = false`. The function must not exist in the compiled shader, not just return early.
-2. Re-enable the CSS glow filter (disabled as a test — not the crash cause, safe to restore).
-3. Once the conditional shader works, test whether a simplified cloud shader (single branch, fewer fbm calls) stays within V3D's instruction limit with `CLOUDS_ENABLED = true`.
-4. Remove `webgl-test.html` (diagnostic file, no longer needed).
-5. Lift the 15fps cap if performance allows.
+1. ✅ Make cloud shader conditional at JS level — `computeCloudMask()` is now wrapped in `${CLOUDS_ENABLED ? \`...\` : ''}` in the template literal. When `CLOUDS_ENABLED = false`, the function body is never included in the compiled GLSL string. `main()` uses the same conditional to either call the function or emit `float cloudMask = 0.0`.
+2. ✅ CSS glow filter restored — the two-layer `drop-shadow` is back in `updateEarth()`.
+3. ✅ Removed `webgl-test.html`.
+4. ✅ Lifted 15fps cap — `TARGET_FPS` / `FRAME_BUDGET` throttle removed; Pi 5 hardware rendering doesn't need it.
+
+**Remaining:**
+- Deploy to Pi (`git pull && sudo reboot`) and confirm globe is stable with `CLOUDS_ENABLED = false`.
+- Then test simplified cloud shader: set `CLOUDS_ENABLED = true` with a single-branch warped cloud approach (drop the `cloudApproach` branch and the warped_layers variant — just warped fbm). If V3D can compile this, gradually add complexity back.
+
+**Simplified cloud approach for Pi testing:**
+The full `computeCloudMask()` has two branches (`warped` and `warped_layers`). V3D inlines both. A Pi-safe variant would:
+- Hard-code the warped branch (remove `if (cloudApproach < 0.5) / else if` branching)
+- Remove the warped_layers code entirely (the three-layer path with 6× `noise3d` + 3× `fbm2`)
+- Keep just: warp vector, two fbm samples, smoothstep — ~12 fbm calls total vs ~20+
 
 ---
 

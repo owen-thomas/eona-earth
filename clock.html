@@ -1338,7 +1338,7 @@
       // 1.0 = ridged_wisps   (ridged multifractal, cirrus-like)
       // 2.0 = warped_layers  (three transparent fbm layers at different scales)
       // 3.0 = warped_wisps   (warped body + ridged detail + edge erosion)
-      float computeCloudMask(vec3 p, float cloudDens, float cloudShp, float seed, float cloudApproach) {
+      ${CLOUDS_ENABLED ? `float computeCloudMask(vec3 p, float cloudDens, float cloudShp, float seed, float cloudApproach) {
         if (cloudDens < 0.001) return 0.0;
         vec3 cp = rotateY(p, cloudRotation);
         vec3 sOff = vec3(seed * 13.7, seed * 7.3, seed * 19.1)
@@ -1409,7 +1409,7 @@
         // Subtle opacity pulse — ±5% over ~35 s period
         mask *= 1.0 + 0.05 * sin(time * 0.18);
         return mask;
-      }
+      }` : ''}
 
       // === SDF ATLAS SAMPLING ===
       // The atlas packs 11 paleogeographic SDFs (512×256 each) stacked
@@ -1469,10 +1469,19 @@
           col = colA;
         }
 
-        // Atmosphere — computeCloudMask inlines too many instructions for V3D
-        // when CLOUDS_ENABLED=false; bypass entirely, clouds are zero.
-        float cloudMask = 0.0;
+        // Atmosphere — cloud function omitted from GLSL entirely when
+        // CLOUDS_ENABLED=false (JS template conditional), so V3D never compiles it.
         vec3 c0Mixed = mix(aC0, bC0, atmosphereBlend);
+        ${CLOUDS_ENABLED ? `
+        float cloudMaskA = computeCloudMask(p, aCloudDens, aCloudShape, aSeed, aCloudApproach);
+        float cloudMask;
+        if (atmosphereBlend > 0.001) {
+          float cloudMaskB = computeCloudMask(p, bCloudDens, bCloudShape, bSeed, bCloudApproach);
+          cloudMask = mix(cloudMaskA, cloudMaskB, atmosphereBlend);
+        } else {
+          cloudMask = cloudMaskA;
+        }` : `
+        float cloudMask = 0.0;`}
         col = mix(col, c0Mixed, cloudMask * 0.92);
         // Polar ice — also uses atmosphereBlend so caps shift with the atmosphere.
         float polarIceMixed = mix(aPolarIce, bPolarIce, atmosphereBlend);
@@ -1701,9 +1710,20 @@
       const glowStr  = glowStrA + (glowStrB - glowStrA) * t;
 
       const earthEl = document.getElementById('earth-layer');
-      // Glow disabled for Pi stability testing — CSS drop-shadow + WebGL
-      // compositing suspected cause of GPU process crash (exit_code=512).
-      earthEl.style.filter = '';
+      if (glowStr > 0.01) {
+        const gA = A.glowRgb ?? [0, 0, 0];
+        const gB = B.glowRgb ?? [0, 0, 0];
+        const r = Math.round((gA[0] + (gB[0] - gA[0]) * t) * 255);
+        const g = Math.round((gA[1] + (gB[1] - gA[1]) * t) * 255);
+        const b = Math.round((gA[2] + (gB[2] - gA[2]) * t) * 255);
+        const blur1 = Math.round(14 * glowStr);
+        const blur2 = Math.round(38 * glowStr);
+        earthEl.style.filter =
+          `drop-shadow(0 0 ${blur1}px rgba(${r},${g},${b},${0.85 * glowStr})) ` +
+          `drop-shadow(0 0 ${blur2}px rgba(${r},${g},${b},${0.45 * glowStr}))`;
+      } else {
+        earthEl.style.filter = '';
+      }
 
       // === ATMOSPHERIC HAZE ===
       // Circular colour overlay matching the globe's visual diameter.
@@ -2680,8 +2700,6 @@
     }
     
     // === MAIN LOOP ===
-    const TARGET_FPS = 15;
-    const FRAME_BUDGET = 1000 / TARGET_FPS;  // ms
     let lastTime = performance.now();
     let loopPaused = false;
 
@@ -2714,7 +2732,6 @@
     function tick() {
       if (loopPaused) return;
       const now = performance.now();
-      if (now - lastTime < FRAME_BUDGET) { requestAnimationFrame(tick); return; }
       const deltaTime = (now - lastTime) / 1000;
       lastTime = now;
 
