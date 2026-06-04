@@ -115,19 +115,19 @@ cd ~/eona && git pull && sudo reboot
 
 ## Known Issues
 
-### ~~White square / GPU crash~~ (resolved — see below)
+### ~~White square / GPU crash~~ (resolved)
 On Pi 4, VideoCore VI crashed the GPU process with the Three.js WebGL shader (`exit_code=512`). Falling back to SwiftShader (CPU rendering) also failed.
 
 **Root cause (Pi 4):** VideoCore VI is not capable of compiling/running this shader under Chromium. Dead end — no fix possible.
 
-**Root cause (Pi 5):** Same `exit_code=512` GPU crash initially. After binary-search isolation across shader sections, the culprit is `computeCloudMask()`. The V3D GLSL compiler inlines the full function body (4 branches, multiple fbm calls), exceeding V3D's shader instruction limit — even when `CLOUDS_ENABLED = false` and the function returns immediately at runtime. The early `return 0.0` does not prevent compilation of the full inlined body.
+**Root cause (Pi 5):** Same `exit_code=512` GPU crash initially. After binary-search isolation, the culprit was `computeCloudMask()`. V3D inlines the full function body, exceeding its shader instruction limit — even with `CLOUDS_ENABLED = false` and an early `return 0.0`, because the early return does not prevent compilation of the inlined body.
 
-**Current workaround:** `CLOUDS_ENABLED = false` + `float cloudMask = 0.0` hardcoded in `main()`, bypassing the call entirely. CSS glow also temporarily disabled (not the crash cause — safe to re-enable). Globe is stable.
+**Resolution:** Two changes combined:
+1. `computeCloudMask()` is wrapped in a JS template literal conditional (`${CLOUDS_ENABLED ? \`...\` : ''}`). When `CLOUDS_ENABLED = false`, the function is absent from the GLSL string entirely — V3D never sees it.
+2. With `CLOUDS_ENABLED = true`: the multi-branch cloud function (`warped` + `warped_layers`) still exceeded V3D's limit. Collapsed to a single **warped_wisps** branch using `ridgedFbm2` (2-octave, multiplicative accumulation) instead of the full 5-octave `ridgedFbm`. Pi has clouds. ~14 `noise3d` calls total — confirmed within V3D's limit.
 
-**Proper fix (next session):** Make the cloud shader conditional in the JS shader string. When `CLOUDS_ENABLED = false`, omit `computeCloudMask()` from the GLSL entirely using a template literal conditional — so V3D never compiles it. Desktop (`CLOUDS_ENABLED = true`) gets the full shader unchanged. Also consider a simplified single-branch cloud shader for Pi that stays within V3D's instruction limit.
-
-### ~~Performance / 15fps cap~~ (resolved by Pi 5 upgrade)
-The 15fps cap in `clock.html` was set for SwiftShader CPU rendering on Pi 4. With Pi 5 hardware rendering this cap can be lifted — to be confirmed on first boot.
+### ~~Performance / 15fps cap~~ (resolved)
+The 15fps cap (`TARGET_FPS` / `FRAME_BUDGET` throttle) was set for SwiftShader CPU rendering on Pi 4. Removed — Pi 5 hardware rendering runs at full rAF frame rate.
 
 ### ~~Future states broken~~ (resolved)
 The Pi simplification pass had removed the `isFuture` dispatch in `updateEarth()`, causing the future half of the clock to show Modern Earth throughout. Fixed — future SDF atlas restored, dispatch reinstated, `FUTURE_STATES` `useLandSea` values corrected.
@@ -145,30 +145,33 @@ On this Pi OS version, the package and command are `chromium`, not `chromium-bro
 - [x] Mount Pi 5 to display via existing standoffs
 - [x] Connect M.2 adapter FFC cable to Pi 5 PCIe connector
 - [x] Connect active cooler fan header + 5V/GND GPIO power
-- [x] Boot from SD card — clock loads, globe stable
-- [ ] Seat Kingston 2230 NVMe in M.2 slot (SSD not yet arrived)
+- [x] Boot from SD card — clock loads, globe stable, clouds working
+- [ ] Seat Kingston 2230 NVMe in M.2 slot (SSD arriving soon)
 - [ ] Flash Pi OS to NVMe and set boot order (`raspi-config` → Advanced → Boot Order)
 - [ ] Check `aplay -l` for HDMI audio device (for future speaker work)
 
-## Shader Fix — Progress
+## `clock.html` vs `eona.html` — Pi Shader Differences
 
-**Goal:** Re-enable clouds on Pi without crashing V3D.
+`clock.html` is the Pi-targeted version. Key differences from `eona.html`:
 
-**Steps:**
-1. ✅ Make cloud shader conditional at JS level — `computeCloudMask()` is now wrapped in `${CLOUDS_ENABLED ? \`...\` : ''}` in the template literal. When `CLOUDS_ENABLED = false`, the function body is never included in the compiled GLSL string. `main()` uses the same conditional to either call the function or emit `float cloudMask = 0.0`.
-2. ✅ CSS glow filter restored — the two-layer `drop-shadow` is back in `updateEarth()`.
-3. ✅ Removed `webgl-test.html`.
-4. ✅ Lifted 15fps cap — `TARGET_FPS` / `FRAME_BUDGET` throttle removed; Pi 5 hardware rendering doesn't need it.
+| Feature | `eona.html` | `clock.html` |
+|---------|-------------|--------------|
+| `fbm()` | 4 octaves | **2 octaves** — used for cloud warp vectors only |
+| `fbmSurf()` | (same as `fbm`) | **4 octaves** — surface rendering only |
+| Cloud function | Full `computeCloudMask()` with 4 branches | Single warped_wisps branch, `ridgedFbm2` (2-octave multiplicative) |
+| `ridgedFbm` | 5-octave loop | `ridgedFbm2` — 2 octaves, multiplicative accumulation matches distribution |
+| `CLOUDS_ENABLED` | `true` | `true` (conditional: function absent from GLSL when `false`) |
+| `renderSurface()` | Full uber-shader (screenprint / watercolor / topographic branches) | Screenprint only — `surfaceApproach` field is ignored |
+| State blending | Full cross-fade | `stateBlend` held at 0 by JS in earlier Pi simplification pass — **check if this is still the case** |
 
-**Remaining:**
-- Deploy to Pi (`git pull && sudo reboot`) and confirm globe is stable with `CLOUDS_ENABLED = false`.
-- Then test simplified cloud shader: set `CLOUDS_ENABLED = true` with a single-branch warped cloud approach (drop the `cloudApproach` branch and the warped_layers variant — just warped fbm). If V3D can compile this, gradually add complexity back.
+### V3D instruction budget
+V3D's limit sits somewhere between ~14 and ~24 `noise3d`-equivalent calls in the compiled shader. Current cloud function uses ~14. The crash zone starts around:
+- Multi-branch cloud function (`warped` + `warped_layers` together): ~24 calls → crash
+- Warped_wisps with 5-octave `ridgedFbm`: ~20 calls → untested, probably marginal
+- Current single warped_wisps with `ridgedFbm2`: ~14 calls → stable ✅
 
-**Simplified cloud approach for Pi testing:**
-The full `computeCloudMask()` has two branches (`warped` and `warped_layers`). V3D inlines both. A Pi-safe variant would:
-- Hard-code the warped branch (remove `if (cloudApproach < 0.5) / else if` branching)
-- Remove the warped_layers code entirely (the three-layer path with 6× `noise3d` + 3× `fbm2`)
-- Keep just: warp vector, two fbm samples, smoothstep — ~12 fbm calls total vs ~20+
+### Surface rendering note
+`renderSurface()` in `clock.html` has no `topographic` branch — the `surfaceApproach` field on STATES is accepted but ignored. Red Giant and Earth destroyed use `screenprint` with standard 0.46/0.56 thresholds. If topographic is needed for these states, the branch must be added to the Pi shader (adds instruction cost, but `renderSurface()` confirmed stable on V3D in isolation).
 
 ---
 
