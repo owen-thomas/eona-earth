@@ -1275,10 +1275,13 @@
       }
       // 2-octave ridged fbm — gives cloud edges a brushstroke crease without
       // the 5-octave version's instruction cost (Pi V3D budget).
+      // Uses multiplicative accumulation (n * prev) from the full ridgedFbm to
+      // match its output distribution (~0.35 mean vs ~0.50 for linear blend),
+      // so the same density threshold gives the same cloud coverage.
       float ridgedFbm2(vec3 p) {
         float n0 = ridgedNoise(p);
-        float n1 = ridgedNoise(p * 2.2 + vec3(7.3)) * 0.45;
-        return (n0 + n1) / 1.45;
+        float n1 = ridgedNoise(p * 2.2 + vec3(7.3));
+        return n0 * 0.5 + n1 * n0 * 0.45;
       }
 
 
