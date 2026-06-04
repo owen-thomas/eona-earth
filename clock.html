@@ -655,7 +655,7 @@
     //                        late-state shift (GOE, plant colonization, K-Pg).
     // Temporarily disable clouds across all states to let us focus on surface
     // work. Setting to true restores each state's cloudDensity as tuned below.
-    const CLOUDS_ENABLED = false;
+    const CLOUDS_ENABLED = true;
 
     // Signed distance field atlas — 11 timestamps of paleogeographic land/sea
     // shapes stacked vertically. Each row block is an equirectangular SDF where
@@ -1345,66 +1345,25 @@
                   + vec3(time * 0.004, time * 0.003, time * 0.0025);
         float yAniso = mix(3.0, 1.0, cloudShp);
         float latFade = 1.0 - pow(abs(cp.y), 3.0) * 0.25;
-        float mask = 0.0;
 
-        if (cloudApproach < 0.5) {
-          // === WARPED ===
-          float warpStrength = mix(0.35, 1.6, cloudShp);
-          vec3 warp = vec3(
-            fbm(cp * 1.8 + sOff),
-            fbm(cp * 1.8 + sOff + vec3(13.1)),
-            fbm(cp * 1.8 + sOff + vec3(27.7))
-          ) - 0.5;
-          vec3 sp = vec3(cp.x + sOff.x * 0.2, cp.y * yAniso, cp.z + sOff.y * 0.2) + warp * warpStrength;
-          float cA = fbm2(sp * 2.0);
-          vec3 sp2 = vec3(cp.x * 0.7, cp.y * yAniso * 0.55, cp.z * 0.7) + warp * warpStrength * 0.6;
-          float cB = fbm2(sp2 + sOff * 0.1);
-          float cC = fbm(cp * 6.5 + sOff * 0.7 + vec3(55.0));
-          float field = cA * 0.60 + cB * 0.30 + cC * 0.18;
-          float thresh = mix(0.78, 0.18, cloudDens);
-          mask = smoothstep(thresh, thresh + 0.04, field) * latFade;
-
-        } else if (cloudApproach < 2.5) {
-          // === WARPED LAYERS ===
-          float yAni = mix(2.5, 1.0, cloudShp);
-          float warpAmt = mix(0.25, 0.7, cloudShp);
-          vec3 off1 = vec3(time * 0.005, time * 0.003, time * 0.004);
-          vec3 off2 = vec3(time * 0.003, time * 0.005, time * 0.002) + vec3(30.0);
-          vec3 off3 = vec3(time * 0.002, time * 0.004, time * 0.006) + vec3(60.0);
-
-          // Layer helper inlined (can't call sub-functions easily in uber-shader)
-          // Layer 1
-          vec3 sp1 = vec3(cp.x, cp.y * yAni, cp.z) * 1.6 + off1;
-          float w1a = noise3d(sp1 * 0.7 + off1) - 0.5;
-          float w1b = noise3d(sp1 * 0.7 + off1 + vec3(17.0)) - 0.5;
-          sp1.x += w1a * warpAmt; sp1.z += w1b * warpAmt;
-          float l1 = fbm2(sp1);
-          // Layer 2
-          vec3 sp2 = vec3(cp.x, cp.y * yAni * 0.8, cp.z) * 3.0 + off2;
-          float w2a = noise3d(sp2 * 0.7 + off2) - 0.5;
-          float w2b = noise3d(sp2 * 0.7 + off2 + vec3(17.0)) - 0.5;
-          sp2.x += w2a * warpAmt * 0.8; sp2.z += w2b * warpAmt * 0.8;
-          float l2 = fbm2(sp2);
-          // Layer 3
-          vec3 sp3 = vec3(cp.x, cp.y * yAni * 0.6, cp.z) * 5.5 + off3;
-          float w3a = noise3d(sp3 * 0.7 + off3) - 0.5;
-          float w3b = noise3d(sp3 * 0.7 + off3 + vec3(17.0)) - 0.5;
-          sp3.x += w3a * warpAmt * 0.5; sp3.z += w3b * warpAmt * 0.5;
-          float l3 = fbm2(sp3);
-
-          float tBase = mix(0.72, 0.06, cloudDens * cloudDens * 0.6 + cloudDens * 0.4);
-          float stagger = mix(0.12, 0.005, cloudDens);
-          float edgeW = mix(0.14, 0.03, cloudDens);
-          float m1 = smoothstep(tBase, tBase + edgeW, l1);
-          float m2 = smoothstep(tBase + stagger, tBase + stagger + edgeW * 0.8, l2);
-          float m3 = smoothstep(tBase + stagger * 2.0, tBase + stagger * 2.0 + edgeW * 0.6, l3);
-          float w1m = mix(0.45, 0.92, cloudDens);
-          float w2m = mix(0.28, 0.80, cloudDens);
-          float w3m = mix(0.18, 0.70, cloudDens);
-          float combined = 1.0 - (1.0 - m1 * w1m) * (1.0 - m2 * w2m) * (1.0 - m3 * w3m);
-          mask = combined * latFade;
-
-        }
+        // Single warped branch — all cloudApproach variants collapsed to this
+        // for Pi V3D compatibility. The multi-branch version exceeds V3D's
+        // shader instruction limit even after the JS-level conditional removed
+        // the function when CLOUDS_ENABLED=false.
+        float warpStrength = mix(0.35, 1.6, cloudShp);
+        vec3 warp = vec3(
+          fbm(cp * 1.8 + sOff),
+          fbm(cp * 1.8 + sOff + vec3(13.1)),
+          fbm(cp * 1.8 + sOff + vec3(27.7))
+        ) - 0.5;
+        vec3 sp = vec3(cp.x + sOff.x * 0.2, cp.y * yAniso, cp.z + sOff.y * 0.2) + warp * warpStrength;
+        float cA = fbm2(sp * 2.0);
+        vec3 sp2 = vec3(cp.x * 0.7, cp.y * yAniso * 0.55, cp.z * 0.7) + warp * warpStrength * 0.6;
+        float cB = fbm2(sp2 + sOff * 0.1);
+        float cC = fbm(cp * 6.5 + sOff * 0.7 + vec3(55.0));
+        float field = cA * 0.60 + cB * 0.30 + cC * 0.18;
+        float thresh = mix(0.78, 0.18, cloudDens);
+        float mask = smoothstep(thresh, thresh + 0.04, field) * latFade;
 
         // Subtle opacity pulse — ±5% over ~35 s period
         mask *= 1.0 + 0.05 * sin(time * 0.18);
