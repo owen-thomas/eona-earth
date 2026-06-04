@@ -124,7 +124,7 @@ On Pi 4, VideoCore VI crashed the GPU process with the Three.js WebGL shader (`e
 
 **Resolution:** Two changes combined:
 1. `computeCloudMask()` is wrapped in a JS template literal conditional (`${CLOUDS_ENABLED ? \`...\` : ''}`). When `CLOUDS_ENABLED = false`, the function is absent from the GLSL string entirely — V3D never sees it.
-2. With `CLOUDS_ENABLED = true`: the multi-branch cloud function (`warped` + `warped_layers`) still exceeded V3D's limit. Collapsed to a single **warped_wisps** branch using `ridgedFbm2` (2-octave, multiplicative accumulation) instead of the full 5-octave `ridgedFbm`. Pi has clouds. ~14 `noise3d` calls total — confirmed within V3D's limit.
+2. With `CLOUDS_ENABLED = true`: the multi-branch cloud function (`warped` + `warped_layers`) still exceeded V3D's limit. Collapsed to a single **warped_wisps** branch. `ridgedFbm2` was initially 2-octave to stay within budget; subsequently upgraded to 5-octave after confirming ~20 calls is within V3D's limit on Pi 5.
 
 ### ~~Performance / 15fps cap~~ (resolved)
 The 15fps cap (`TARGET_FPS` / `FRAME_BUDGET` throttle) was set for SwiftShader CPU rendering on Pi 4. Removed — Pi 5 hardware rendering runs at full rAF frame rate.
@@ -160,22 +160,25 @@ On this Pi OS version, the package and command are `chromium`, not `chromium-bro
 | `fbmSurf()` | (same as `fbm`) | **4 octaves** — surface rendering only |
 | `fbm2()` | 2 octaves | **2 octaves** — cloud body sampling (matches eona.html) |
 | `ridgedFbm2()` | n/a | **5 octaves** — matches eona.html `ridgedFbm`; ~20 total calls at confirmed V3D limit |
-| Cloud function | Full `computeCloudMask()` with 4 branches | Single warped_wisps branch, `ridgedFbm2` (2-octave multiplicative) |
-| `ridgedFbm` | 5-octave loop | `ridgedFbm2` — 2 octaves, multiplicative accumulation matches distribution |
+| Cloud function | Full `computeCloudMask()` with 4 branches | Single warped_wisps branch; all states use warped_wisps regardless of `cloudApproach` field |
+| `ridgedFbm` | 5-octave loop | `ridgedFbm2` — **5 octaves**, multiplicative accumulation; matches eona.html quality |
+| Cloud warp frequency | `cp * 1.8` | `cp * 1.2` — lower frequency for broader wave structure |
+| `cloudShape` per state | Per-state values | Pre-Cryogenian states bumped (0.00 → 0.15–0.75); warped_wisps looks poor at 0.00 |
 | `CLOUDS_ENABLED` | `true` | `true` (conditional: function absent from GLSL when `false`) |
 | `renderSurface()` | Full uber-shader (screenprint / watercolor / topographic branches) | Screenprint only — `surfaceApproach` field is ignored |
 | State blending | Full dual-render cross-fade | CPU-interpolated: colours, cloudDensity, cloudShape, thresholds, polarIce all lerp smoothly. `seed`, `useLandSea`, `cloudApproach` snap at t=0.5. No dual-render (would double V3D instruction count). |
 
 ### V3D instruction budget
-V3D's limit sits somewhere between ~14 and ~24 `noise3d`-equivalent calls in the compiled shader. The crash zone starts around:
-- Multi-branch cloud function (`warped` + `warped_layers` together): ~24 calls → crash
-- Multi-branch cloud function (`warped` + `warped_layers` together): ~24 calls → crash
-- 4-octave cloud warp (`fbm()` upgraded): ~20 calls → no visual benefit, reverted
-- Warped_wisps with 5-octave `ridgedFbm`: ~20 calls → untested, probably marginal
-- 2-octave `fbm2` + 5-octave `ridgedFbm2` + 2-octave warp: ~20 calls → **current** ✅
-- 4-octave `fbm2` cloud body + 2-octave warp: ~18 calls → body richer but edges softer, superseded
-- 3-octave `fbm2` cloud body + 2-octave warp: ~16 calls → too wispy, reverted
-- Single warped_wisps with `ridgedFbm2` + 2-octave `fbm()`: ~14 calls → previous stable baseline
+V3D's limit sits somewhere between ~20 and ~24 `noise3d`-equivalent calls in the compiled shader. Budget history:
+
+| Config | Calls | Result |
+|--------|-------|--------|
+| Multi-branch cloud (`warped` + `warped_layers`) | ~24 | crash |
+| Single warped_wisps + 2-octave `ridgedFbm2` + 2-octave warp | ~14 | stable (original) |
+| Single warped_wisps + 2-octave `ridgedFbm2` + 4-octave warp | ~20 | stable — but no visible benefit, reverted |
+| Single warped_wisps + 3-octave `fbm2` + 2-octave warp | ~16 | stable — too wispy |
+| Single warped_wisps + 4-octave `fbm2` + 2-octave warp | ~18 | stable — edges soft |
+| Single warped_wisps + 5-octave `ridgedFbm2` + 2-octave warp | ~20 | **current** ✅ |
 
 ### Surface rendering note
 `renderSurface()` in `clock.html` has no `topographic` branch — the `surfaceApproach` field on STATES is accepted but ignored. Red Giant and Earth destroyed use `screenprint` with standard 0.46/0.56 thresholds. If topographic is needed for these states, the branch must be added to the Pi shader (adds instruction cost, but `renderSurface()` confirmed stable on V3D in isolation).
