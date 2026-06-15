@@ -24,15 +24,23 @@ Single wall cable: only the Pi's own USB-C power supply runs to the wall. The di
 - Pi fastened to back of display via hex standoffs + tiny screws
 - Busy side of the board (chips, ports) faces inward toward the display
 - Flat underside faces outward
-- Current assembly depth: ~41mm (may increase slightly with M.2 adapter + cooler)
-- ~20–25mm standoff clearance between display and Pi — sufficient for M.2 + active cooler stack (SSD mounts flat alongside heatsink, does not add height)
+- Current assembly depth: **54mm** — breakdown: 25mm standoffs (display→Pi gap) + display PCB + Pi board + active cooler stack + cooler screw protrusion
+- 25mm standoffs are the largest single contributor; minimum dictated by active cooler height above the Pi board
+- SSD mounts flat alongside heatsink, does not add height
 
-### Enclosure (TBD)
-Display outer diameter: 203mm (8"). Currently unmounted on wall — enclosure design pending.
-- Target aesthetic: black or brushed metal, space vibes
-- Needs ~45–50mm internal depth, ventilation for active cooler fan
-- Options under consideration: SLS 3D print (matte black nylon), laser-cut aluminium rings, local metal fabricator
-- Note: ventilation pattern on back plate can be a design feature (perforated circle motif)
+### Mounting / Enclosure
+Display outer diameter: 203mm (8"). No enclosure — hanging open-back.
+
+**Front:** Clean black circle, thin edge. No bezel needed.
+**Back:** Pi 5 PCB (green), gold standoffs, braided HDMI cable looped neatly. Reads as intentional. Ventilation is a non-issue with open back.
+**Cables:** Tidy as-assembled. White USB-C power cable exits at bottom and runs to wall — unavoidable, accepted.
+
+**Hanging method:** Wire from the top two standoffs (58mm apart, Pi mounting pattern). Options:
+- Loop wire around standoff shaft between Pi and disc — no modification needed
+- Replace top two nuts with eye bolt standoffs for a cleaner attachment point
+- Thin picture wire to a single wall hook
+
+No enclosure fabrication needed.
 
 ### Audio (deferred)
 Display board has an NS4263 mono 3W amp with a 4-pin PH1.25 JST "Speaker" connector and a 3.5mm audio input jack. Audio signal likely comes from HDMI.
@@ -146,8 +154,8 @@ On this Pi OS version, the package and command are `chromium`, not `chromium-bro
 - [x] Connect M.2 adapter FFC cable to Pi 5 PCIe connector
 - [x] Connect active cooler fan header + 5V/GND GPIO power
 - [x] Boot from SD card — clock loads, globe stable, clouds working
-- [ ] Seat Kingston 2230 NVMe in M.2 slot (SSD arriving soon)
-- [ ] Flash Pi OS to NVMe and set boot order (`raspi-config` → Advanced → Boot Order)
+- [x] Seat Kingston 2230 NVMe in M.2 slot
+- [x] Flash Pi OS to NVMe and set boot order (`raspi-config` → Advanced → Boot Order)
 - [ ] Check `aplay -l` for HDMI audio device (for future speaker work)
 
 ## `clock.html` vs `eona.html` — Pi Shader Differences

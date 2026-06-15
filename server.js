@@ -18,7 +18,7 @@ const MIME = {
 
 http.createServer((req, res) => {
   let urlPath = req.url.split('?')[0];
-  if (urlPath === '/') urlPath = '/deeptime.html';
+  if (urlPath === '/') urlPath = '/clock.html';
   const filePath = path.join(ROOT, urlPath);
   const ext = path.extname(filePath);
 

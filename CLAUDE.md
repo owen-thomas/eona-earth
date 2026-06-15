@@ -491,6 +491,104 @@ Unified per-phase editor for palette, shader approach, haze, and render paramete
 
 ---
 
+## Physical Build — Raspberry Pi
+
+### Hardware
+
+**Components:**
+- Raspberry Pi 5 (2GB RAM) — VideoCore VII handles the WebGL shader without crashing
+- Waveshare round display (1080×1080, 8" diameter)
+- Micro-HDMI to HDMI adapter
+- Waveshare M.2 Adapter with Active Cooler (PCIe via FFC connector; temperature-controlled blower fan)
+- Kingston 256GB 2230 NVMe SSD (boots via M.2 adapter — replaces SD card)
+- Raspberry Pi 27W USB-C Power Supply
+
+**Wiring:**
+
+| Display port | Connects to |
+|---|---|
+| HDMI | Pi 5 **HDMI0** (micro-HDMI closest to USB-C power port) |
+| USB-C (touch) | Pi USB 3 port (blue) — USB 2 underpowers it |
+| USB-C (power) | Pi USB 2 port (black) — 300mA draw, no data needed |
+
+Single wall cable: only the Pi's USB-C power supply runs to the wall. Display is powered from the Pi.
+
+**Mounting:** Pi fastened to back of display via hex standoffs (busy side facing inward). Assembly depth: **54mm** — standoffs + display PCB + Pi board + active cooler stack. SSD mounts flat alongside heatsink, does not add height.
+
+**Mounting:** No enclosure — hanging open-back. Front: clean black circle, thin edge. Back: Pi 5 PCB, gold standoffs, braided HDMI cable. Reads as intentional. Wire from top two standoffs (58mm apart) to a single wall hook; thin picture wire or eye bolt standoffs for a cleaner attachment point. White USB-C power cable exits at bottom to wall — accepted.
+
+**Audio (deferred):** Display board has NS4263 mono 3W amp with PH1.25 JST "Speaker" connector and 3.5mm audio input. Speaker needed: 8Ω 2W, PH1.25 connector — Waveshare 2030 Cavity Speaker. Confirm HDMI audio routing with `aplay -l` before purchasing.
+
+### Software
+
+**OS:** Raspberry Pi OS (Debian Trixie), Wayland display server. Hostname: `eona` (`eona.local`). User: `pi`.
+
+**Repo:** `https://github.com/owen-thomas/eona-earth.git`, cloned to `~/eona`. `clock.html` served directly from `~/eona/clock.html`.
+
+**Offline assets** — bundled locally, no internet required:
+- `lib/three.r128.min.js`
+- `fonts/space-mono-400.woff2`, `fonts/space-mono-700.woff2`, `fonts/fraunces-400.woff2`
+- Logo inlined as base64 data URI in `clock.html`
+
+**Autostart** (`~/.config/autostart/clock.desktop`):
+```ini
+[Desktop Entry]
+Type=Application
+Name=Clock
+Exec=chromium --kiosk --noerrdialogs --disable-infobars --no-first-run --password-store=basic file:///home/pi/eona/clock.html
+```
+
+Key flags: `--password-store=basic` suppresses keyring prompt; `--kiosk` is full-screen. `--disable-gpu` and `--enable-unsafe-swiftshader` are **not needed** on Pi 5 — VideoCore VII handles WebGL with hardware rendering.
+
+**Update workflow:**
+```bash
+ssh pi@eona.local
+cd ~/eona && git pull && sudo reboot
+```
+
+Pi runs Wayland — `DISPLAY=:0` does not work from SSH. Reboot is the standard way to reload Chromium after a pull.
+
+### `clock.html` — Pi-Specific Shader
+
+`clock.html` is the Pi-targeted build. Key differences from `eona.html`:
+
+| Feature | `eona.html` | `clock.html` |
+|---------|-------------|--------------|
+| `fbm()` | 4 octaves | 2 octaves — cloud warp vectors only |
+| `fbmSurf()` | (same as fbm) | 4 octaves — surface rendering |
+| `ridgedFbm2()` | n/a | 5 octaves — matches eona.html `ridgedFbm` quality |
+| Cloud function | Full 4-branch uber-shader | Single warped_wisps branch |
+| `renderSurface()` | Screenprint / watercolor / topographic | Screenprint only — `surfaceApproach` field ignored |
+| State blending | Dual-render cross-fade | CPU-interpolated lerp; seed/useLandSea/cloudApproach snap at t=0.5 |
+| `cloudShape` | Per-state values | Pre-Cryogenian states bumped (0.00 → 0.15–0.75) |
+| `CLOUDS_ENABLED` | `true` | Conditional: function absent from GLSL when `false` |
+
+**V3D instruction budget** — Pi 5's limit sits between ~20 and ~24 noise3d-equivalent calls:
+
+| Config | Calls | Result |
+|--------|-------|--------|
+| Multi-branch cloud (warped + warped_layers) | ~24 | crash |
+| warped_wisps + 2-oct ridgedFbm2 + 2-oct warp | ~14 | stable |
+| warped_wisps + 5-oct ridgedFbm2 + 2-oct warp | ~20 | **current** ✅ |
+
+### Installation Status
+
+- [x] Mount Pi 5 to display via hex standoffs
+- [x] Connect M.2 adapter FFC cable to Pi 5 PCIe connector
+- [x] Connect active cooler fan header + 5V/GND GPIO power
+- [x] Boot from SD card — clock loads, globe stable, clouds working
+- [x] Seat Kingston 2230 NVMe in M.2 slot
+- [x] Flash Pi OS to NVMe; set boot order (NVMe first, SD fallback)
+- [ ] Check `aplay -l` for HDMI audio device (for future speaker work)
+
+### Known Issues (Pi)
+
+- **SSH password lockout** — After reboot, SSH password auth may fail (caps lock / keyboard layout). Fix: plug in USB keyboard, `Ctrl+Alt+F2` for text console, run `passwd pi`.
+- **Chromium package name** — On this Pi OS version, the package and binary are `chromium`, not `chromium-browser`.
+- **V3D GPU crash** — Pi 4 cannot run the shader (VideoCore VI limitation, dead end). On Pi 5, the multi-branch cloud function exceeded V3D's instruction limit. Fix: collapse to single warped_wisps branch and wrap the function in a JS template literal conditional so it is absent from the GLSL string entirely when `CLOUDS_ENABLED = false`.
+
+---
+
 ## Known Issues / Watch-outs
 
 1. **SDF orientation** — `flipY = false` and `atan(p.z, -p.x)` must both be present. Easy to lose when refactoring the texture setup or shader. See SDF gotchas above.
@@ -514,9 +612,9 @@ Unified per-phase editor for palette, shader approach, haze, and render paramete
 
 ### Backlog
 - [ ] Keyboard navigation to jump between events
+- [ ] Display auto-dim after inactivity; touchscreen tap restores full brightness
 - [ ] Scrub without spinning the globe to observe continental drift
 - [ ] Future Earth projection — second 12-hour period covering the remaining lifespan of the planet
-- [ ] Physical build using a Waveshare display and a Raspberry Pi 4
 - [ ] Eon/era labels on rings — curved text along eon pie slices in infographic layer
 - [ ] Sound design
 - [ ] Watch app / mobile app
