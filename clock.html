@@ -899,7 +899,7 @@
         cloudDensity: 0.55, cloudShape: 1.00, polarIce: 0.0,
         useLandSea: 1.0, coastSoftness: 0.03,
         surfaceApproach: 'screenprint', cloudApproach: 'warped',
-        seed: 7.0 },
+        seed: 10.5 },
 
       // F1b: Near Earth (late) — 125–250 Ma future
       // Full Near Earth palette; begins blending toward Supercontinent at 200 Ma.
@@ -913,7 +913,7 @@
         cloudDensity: 0.55, cloudShape: 1.00, polarIce: 0.0,
         useLandSea: 1.0, coastSoftness: 0.03,
         surfaceApproach: 'screenprint', cloudApproach: 'warped',
-        seed: 7.0 },
+        seed: 10.5 },
 
       // F2a: Supercontinent peak (+250 to +400 Ma)
       { name: 'Supercontinent',
@@ -1264,6 +1264,7 @@
       uniform float aCloudShape, bCloudShape;   // 0 = horizontal bands, 1 = marbled swirl
       uniform float aPolarIce, bPolarIce;       // 0..1 intensity of polar caps
       uniform float aSeed, bSeed;
+      uniform float cloudSeed;
       uniform float stateBlend;       // 0 = fully A, 1 = fully B
       uniform float atmosphereBlend;  // leads stateBlend by 20% of the blend window
       uniform float cloudRotation;    // independent cloud rotation angle (radians)
@@ -1519,14 +1520,9 @@
         // CLOUDS_ENABLED=false (JS template conditional), so V3D never compiles it.
         vec3 c0Mixed = mix(aC0, bC0, atmosphereBlend);
         ${CLOUDS_ENABLED ? `
-        float cloudMaskA = computeCloudMask(p, aCloudDens, aCloudShape, aSeed, aCloudApproach);
-        float cloudMask;
-        if (atmosphereBlend > 0.001) {
-          float cloudMaskB = computeCloudMask(p, bCloudDens, bCloudShape, bSeed, bCloudApproach);
-          cloudMask = mix(cloudMaskA, cloudMaskB, atmosphereBlend);
-        } else {
-          cloudMask = cloudMaskA;
-        }` : `
+        float cloudDensMixed = mix(aCloudDens, bCloudDens, atmosphereBlend);
+        float cloudShpMixed = mix(aCloudShape, bCloudShape, atmosphereBlend);
+        float cloudMask = computeCloudMask(p, cloudDensMixed, cloudShpMixed, cloudSeed, aCloudApproach);` : `
         float cloudMask = 0.0;`}
         col = mix(col, c0Mixed, cloudMask * 0.92);
         // Polar ice — also uses atmosphereBlend so caps shift with the atmosphere.
@@ -1697,7 +1693,9 @@
 
           // Cloud approach selectors (float-encoded): 0.0=warped, 2.0=warped_layers
           aCloudApproach: { value: 2.0 },
-          bCloudApproach: { value: 2.0 }
+          bCloudApproach: { value: 2.0 },
+
+          cloudSeed: { value: 42.0 }
         }
       });
       
@@ -1713,6 +1711,10 @@
       });
     }
     
+    let _smoothCloudDens = null;
+    let _smoothCloudShape = null;
+    const CLOUD_EASE_RATE = 1.5;
+
     function updateEarth(ma, deltaTime) {
       if (!earthSphere) return;
 
@@ -1758,8 +1760,16 @@
         u['aC' + c].value.set(ra[0] + (rb[0] - ra[0]) * t, ra[1] + (rb[1] - ra[1]) * t, ra[2] + (rb[2] - ra[2]) * t);
       }
       u.aSurfIntens.value    = lerp(A.surfaceIntensity, B.surfaceIntensity);
-      u.aCloudDens.value     = CLOUDS_ENABLED ? lerp(A.cloudDensity, B.cloudDensity) : 0.0;
-      u.aCloudShape.value    = lerp(A.cloudShape, B.cloudShape);
+      {
+        const targetDens = CLOUDS_ENABLED ? lerp(A.cloudDensity, B.cloudDensity) : 0.0;
+        const targetShape = lerp(A.cloudShape, B.cloudShape);
+        const k = 1 - Math.exp(-CLOUD_EASE_RATE * deltaTime);
+        if (_smoothCloudDens === null) { _smoothCloudDens = targetDens; _smoothCloudShape = targetShape; }
+        _smoothCloudDens  += (targetDens - _smoothCloudDens) * k;
+        _smoothCloudShape += (targetShape - _smoothCloudShape) * k;
+        u.aCloudDens.value  = _smoothCloudDens;
+        u.aCloudShape.value = _smoothCloudShape;
+      }
       u.aPolarIce.value      = lerp(A.polarIce, B.polarIce);
       u.aNoiseThresh1.value  = lerp(A.noiseThresh1 ?? 0.46, B.noiseThresh1 ?? 0.46);
       u.aNoiseThresh2.value  = lerp(A.noiseThresh2 ?? 0.56, B.noiseThresh2 ?? 0.56);
@@ -1904,7 +1914,7 @@
       if (scrub.active || rotateOnly.active) {
         earthSphere.rotation.y = scrub.rotationOffset;
         u.cloudRotation.value = -scrub.rotationOffset * 1.2;
-      } else {
+      } else if (!rotationPaused) {
         const globeDelta = (Math.PI * 2 / 900) * deltaTime;
         earthSphere.rotation.y += globeDelta;
         u.cloudRotation.value -= globeDelta * 1.2;
@@ -2508,7 +2518,16 @@
           _handleHovered = hovering;
           if (!_handleLatched) _applyHandleOutline(false);
         }
-        container.style.cursor = hovering ? (scrub.active ? 'grabbing' : 'grab') : '';
+        if (hovering) {
+          container.style.cursor = scrub.active ? 'grabbing' : 'grab';
+        } else {
+          const rect = svg.getBoundingClientRect();
+          const cx = rect.left + rect.width / 2;
+          const cy = rect.top + rect.height / 2;
+          const r = Math.hypot(e.clientX - cx, e.clientY - cy);
+          const earthMaxR = (rect.width / 2) * 66 / 200;
+          container.style.cursor = r <= earthMaxR ? 'pointer' : '';
+        }
       });
 
       container.addEventListener('mouseleave', () => {
@@ -2629,6 +2648,10 @@
       const ROT_GAIN_SCRUB  = 24 * Math.PI / 180;   // = 24° per 1°
       const ROT_GAIN_ROTATE = Math.PI / 180;
 
+      let _tapStart = null;
+      const TAP_MAX_DIST = 6;
+      const TAP_MAX_TIME = 300;
+
       container.addEventListener('pointerdown', (e) => {
         // Only react to primary button.
         if (e.button !== undefined && e.button !== 0) return;
@@ -2642,6 +2665,10 @@
         const maxR = rect.width / 2;
         const minR = maxR * 0.08; // dead zone at the very centre
         if (r > maxR || r < minR) return;
+
+        // Earth radius in screen pixels (33% of clock = r=66 in 400-unit viewBox)
+        const earthMaxR = maxR * 66 / 200;
+        _tapStart = { x: e.clientX, y: e.clientY, time: performance.now(), onEarth: r <= earthMaxR };
 
         // Check geometrically whether the click lands within the handle's radius.
         // e.target is unreliable when hit areas or other elements sit on top of the handle.
@@ -2714,18 +2741,25 @@
               scrub.lastAngle = maToAngle(snapMa);
             }
           }
-          scrub.rotationOffset -= delta * ROT_GAIN_SCRUB;
+          if (!rotationPaused) scrub.rotationOffset -= delta * ROT_GAIN_SCRUB;
         } else if (mode === 'rotate') {
           scrub.rotationOffset -= delta * ROT_GAIN_ROTATE;
         }
       });
 
-      function endDrag() {
+      function endDrag(e) {
+        if (_tapStart && e && e.type === 'pointerup') {
+          const dist = Math.hypot(e.clientX - _tapStart.x, e.clientY - _tapStart.y);
+          const elapsed = performance.now() - _tapStart.time;
+          if (dist <= TAP_MAX_DIST && elapsed <= TAP_MAX_TIME && _tapStart.onEarth) {
+            rotationPaused = !rotationPaused;
+          }
+          _tapStart = null;
+        }
         if (mode === null) return;
         const wasMode = mode;
         mode = null;
         if (wasMode === 'rotate') rotateOnly.active = false;
-        // Hand stays hidden after drag ends — only restored on "Return to now"
         document.body.classList.remove('dragging');
       }
       window.addEventListener('pointerup', endDrag);
@@ -2805,6 +2839,7 @@
     // controls the globe directly. Shares `scrub.rotationOffset` and
     // `scrub.lastAngle` for simplicity.
     const rotateOnly = { active: false };
+    let rotationPaused = false;
 
     const FRAME_INTERVAL = 1000 / 30;
     function tick() {
