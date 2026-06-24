@@ -129,7 +129,7 @@
       width: var(--clock-size);
       height: var(--clock-size);
       border-radius: 50%;
-      background: radial-gradient(circle closest-side, #000000 50%, transparent 100%);
+      background: none;
       pointer-events: none;
       overflow: hidden;
     }
@@ -142,7 +142,7 @@
       position: absolute;
       inset: 0;
       border-radius: 50%;
-      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='1.0' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='1.0' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='matrix' values='0.3 0 0 0 0  0 0.3 0 0 0  0 0 0.3 0 0  0 0 0 1 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
       background-size: 200px 200px;
       mix-blend-mode: multiply;
       opacity: 0.25;
@@ -211,7 +211,7 @@
 
     #margin-top {
       position: absolute;
-      top: calc(50% - var(--clock-size) * 183 / 400);
+      top: calc(50% - var(--clock-size) * 184 / 400);
       left: 50%;
       transform: translate(-50%, -50%);
       z-index: 10;
@@ -301,7 +301,9 @@
     #eon-ring-bg {
       width: calc(var(--clock-size) * 120 / 200);
       height: calc(var(--clock-size) * 120 / 200);
-      background: #000000;
+      background: #111111;
+      -webkit-mask: radial-gradient(circle closest-side, transparent 55%, black 55%);
+      mask: radial-gradient(circle closest-side, transparent 55%, black 55%);
     }
 
     /* Eon ring: background + reveal mask set dynamically each frame.
@@ -338,7 +340,7 @@
       position: absolute;
       inset: 0;
       border-radius: 50%;
-      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='1.0' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='1.0' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='matrix' values='0.3 0 0 0 0  0 0.3 0 0 0  0 0 0.3 0 0  0 0 0 1 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
       background-size: 200px 200px;
       mix-blend-mode: multiply;
       opacity: 0.25;
@@ -353,7 +355,7 @@
       width: calc(var(--clock-size) * 174 / 200);
       height: calc(var(--clock-size) * 174 / 200);
       background: radial-gradient(circle closest-side,
-        rgba(0,0,0,1) 80%, rgba(0,0,0,0) 100%);
+        rgba(17,17,17,0.80) 80%, rgba(17,17,17,0) 100%);
     }
     #minute-hand-indicator {
       position: absolute;
@@ -369,7 +371,7 @@
       width: calc(var(--clock-size) * 120 / 200);
       height: calc(var(--clock-size) * 120 / 200);
       background: radial-gradient(circle closest-side,
-        rgba(0,0,0,1) 70%, rgba(0,0,0,0) 100%);
+        rgba(17,17,17,0.92) 70%, rgba(17,17,17,0) 100%);
     }
 
     /* Minute shadow: conic shadow on the earth face that rotates with the
@@ -426,12 +428,12 @@
     <!-- Persistent layer: always visible regardless of layer toggles -->
     <svg class="clock-svg" id="persistent-layer" viewBox="0 0 400 400">
       <defs>
-        <!-- Bottom arc: r=187 (margin midline), centre (200,200), ±75° from 6 o'clock (wide for event descriptions) -->
-        <path id="arc-ring-bottom" d="M 19.3 248.4 A 187 187 0 0 0 380.7 248.4"/>
-        <!-- Left arc: r=187, ±20° from 9 o'clock, top→bottom -->
-        <path id="arc-ring-left" d="M 24.3 136.0 A 187 187 0 0 0 24.3 264.0"/>
-        <!-- Right arc: r=187, ±20° from 3 o'clock, bottom→top -->
-        <path id="arc-ring-right" d="M 375.7 264.0 A 187 187 0 0 0 375.7 136.0"/>
+        <!-- Bottom arc: r=189, centre (200,200), ±75° from 6 o'clock (wide for event descriptions) -->
+        <path id="arc-ring-bottom" d="M 18.1 248.9 A 189 189 0 0 0 381.9 248.9"/>
+        <!-- Left arc: r=189, ±20° from 9 o'clock, top→bottom -->
+        <path id="arc-ring-left" d="M 23.1 135.4 A 189 189 0 0 0 23.1 264.6"/>
+        <!-- Right arc: r=189, ±20° from 3 o'clock, bottom→top -->
+        <path id="arc-ring-right" d="M 376.9 264.6 A 189 189 0 0 0 376.9 135.4"/>
       </defs>
       <g id="clock-eon-markers"></g>
       <g id="position-indicator"></g>
@@ -555,11 +557,11 @@
     // reverses the past ring (bright → dark) so the future fades into night.
     // NOTE: names are placeholders — final Greek-root names TBD by the user.
     const FUTURE_EONS = [
-      { name: 'Phanerozoic', start: 0,     end: -650,  subtitle: 'Visible life',      opacity: 0.70 },
-      { name: 'Meiozoic',   start: -650,  end: -1500, subtitle: 'Diminishing life',  opacity: 0.56 },
-      { name: 'Xerean',      start: -1500, end: -3000, subtitle: 'The dry age',      opacity: 0.42 },
-      { name: 'Eremoic',     start: -3000, end: -3500, subtitle: 'The desolate age', opacity: 0.28 },
-      { name: 'Eschatean',   start: -3500, end: -4540, subtitle: 'The final age',    opacity: 0.11 },
+      { name: 'Phanerozoic', start: 0,     end: -650,  subtitle: 'Visible life',      opacity: 0.35 },
+      { name: 'Meiozoic',   start: -650,  end: -1500, subtitle: 'Diminishing life',  opacity: 0.30 },
+      { name: 'Xerean',      start: -1500, end: -3000, subtitle: 'The dry age',      opacity: 0.25 },
+      { name: 'Eremoic',     start: -3000, end: -3500, subtitle: 'The desolate age', opacity: 0.20 },
+      { name: 'Eschatean',   start: -3500, end: -4540, subtitle: 'The final age',    opacity: 0.15 },
     ];
 
     // === UTILITY FUNCTIONS ===
@@ -1944,10 +1946,10 @@
     // Eon segment end angles, degrees clockwise from 12 o'clock.
     // Formula: (EARTH_AGE - ma) / EARTH_AGE * 360
     const _EON_SEGS = [
-      { endDeg: (EARTH_AGE - 4000)  / EARTH_AGE * 360, opacity: 0.28 },
-      { endDeg: (EARTH_AGE - 2500)  / EARTH_AGE * 360, opacity: 0.42 },
-      { endDeg: (EARTH_AGE - 538.8) / EARTH_AGE * 360, opacity: 0.56 },
-      { endDeg: 360,                                    opacity: 0.70 },
+      { endDeg: (EARTH_AGE - 4000)  / EARTH_AGE * 360, opacity: 0.14 },
+      { endDeg: (EARTH_AGE - 2500)  / EARTH_AGE * 360, opacity: 0.21 },
+      { endDeg: (EARTH_AGE - 538.8) / EARTH_AGE * 360, opacity: 0.28 },
+      { endDeg: 360,                                    opacity: 0.35 },
     ];
 
     // Future eon segments (PM half). endDeg = (-end)/EARTH_AGE*360 so the future
@@ -1983,7 +1985,7 @@
       // default to a full 0→1 sweep; the Phanerozoic halves use partial ranges
       // so the gradient is continuous across the noon seam.
       const tint = f => {
-        const m = 0.35 + 0.30 * f;
+        const m = 0.35 + 0.15 * f;
         return `${Math.round(ar * m)},${Math.round(ag * m)},${Math.round(ab * m)}`;
       };
       let stops = '';
@@ -2012,7 +2014,7 @@
     let _lastFutureEonRevealDeg  = -1;
     let _lastEonAccentHex        = null;
 
-    function updateRings(ma, minutes, smoothSeconds) {
+    function updateRings(ma, hours24, minutes, smoothSeconds) {
       // Quantise to whole seconds so the minute hand steps once per second.
       // The angle only changes at each second boundary, so the dedup gate below
       // throttles the conic-gradient repaints (outer ring + minute shadow) to
@@ -2035,19 +2037,23 @@
         // the hand reads at the same colour/brightness as the ring rather than
         // full-strength accent.
         const [ar, ag, ab] = _currentAccentRgb;
-        const r = Math.round(ar * 0.65), g = Math.round(ag * 0.65), b = Math.round(ab * 0.65);
-        const OP = 0.56;
+        const r = Math.round(ar * 0.50), g = Math.round(ag * 0.50), b = Math.round(ab * 0.50);
+        const OP = 0.14;
+        const dayFrac = (hours24 + minutes / 60 + Math.floor(smoothSeconds) / 3600) / 24;
+        const arcLen = (1 - Math.abs(dayFrac * 2 - 1)) * 180;
+        const fadeLen = Math.min(30, arcLen * 0.7);
+        const solidStart = 360 - arcLen + fadeLen;
         if (_elOuterRingDiv) {
-          _elOuterRingDiv.style.background =
-            `conic-gradient(from ${minuteAngle.toFixed(2)}deg at center,` +
-            `rgba(${r},${g},${b},0) 0%,` +
-            `rgba(${r},${g},${b},0) 50%,` +
-            `rgba(${r},${g},${b},${OP}) 88%,` +
-            `rgba(${r},${g},${b},${OP}) 100%)`;
+          _elOuterRingDiv.style.background = arcLen < 1
+            ? 'none'
+            : `conic-gradient(from ${minuteAngle.toFixed(2)}deg at center,` +
+              `rgba(${r},${g},${b},0) ${(360 - arcLen).toFixed(1)}deg,` +
+              `rgba(${r},${g},${b},${OP}) ${solidStart.toFixed(1)}deg,` +
+              `rgba(${r},${g},${b},${OP}) 360deg)`;
         }
         if (_elMinuteShadow) {
           _elMinuteShadow.style.background =
-            `conic-gradient(from ${minuteAngle.toFixed(2)}deg,rgba(0,0,0,0.35) 0%,rgba(0,0,0,0) 22%,rgba(0,0,0,0) 100%)`;
+            `conic-gradient(from ${minuteAngle.toFixed(2)}deg,rgba(17,17,17,0.35) 0%,rgba(17,17,17,0) 22%,rgba(17,17,17,0) 100%)`;
         }
         if (_elMinuteHandIndicator) {
           _elMinuteHandIndicator.style.background = _currentAccentHex || '#E34E2A';
@@ -2086,8 +2092,11 @@
           }
           // Backing disc: reveal-only, so the revealed sector hides the past ring.
           if (_elFutureEonRingBg) {
-            _elFutureEonRingBg.style.mask = reveal;
-            _elFutureEonRingBg.style.webkitMask = reveal;
+            const bgMaskStr = `${_EON_ANNULAR_MASK},${reveal}`;
+            _elFutureEonRingBg.style.mask = bgMaskStr;
+            _elFutureEonRingBg.style.maskComposite = 'intersect,add';
+            _elFutureEonRingBg.style.webkitMask = bgMaskStr;
+            _elFutureEonRingBg.style.webkitMaskComposite = 'source-in,source-over';
           }
         }
       }
@@ -2100,7 +2109,7 @@
           const edgeAngle = (maToAngle(ma) + 90 + 360) % 360;
           _elEonEdgeShadow.style.background =
             `conic-gradient(from ${edgeAngle.toFixed(1)}deg at center,` +
-            `rgba(0,0,0,1) 0deg,rgba(0,0,0,0) 36deg,transparent 36deg,transparent 360deg)`;
+            `rgba(17,17,17,1) 0deg,rgba(17,17,17,0) 36deg,transparent 36deg,transparent 360deg)`;
           _elEonEdgeShadow.style.opacity = '1';
         } else {
           _elEonEdgeShadow.style.opacity = '0';
@@ -2725,7 +2734,7 @@
 
           // Snap to nearby event markers (past or future half).
           {
-            const SNAP_MA = 18;
+            const SNAP_MA = 6.3;
             const events = scrub.ma >= 0 ? EVENTS : FUTURE_EVENTS;
             let snapMa = null, snapDist = Infinity;
             events.forEach(ev => {
@@ -2916,11 +2925,12 @@
 
       if (scrub.active && scrub.displayStartSecs != null) {
         const displaySecs = ((scrub.displayStartSecs + scrub.cumulativeAngleDelta / 360 * 43200) % 86400 + 86400) % 86400;
+        const scrubH = Math.floor(displaySecs / 3600);
         const scrubMin = Math.floor((displaySecs % 3600) / 60);
         const scrubSec = displaySecs % 60;
-        updateRings(ma, scrubMin, scrubSec);
+        updateRings(ma, scrubH, scrubMin, scrubSec);
       } else {
-        updateRings(ma, minutes, smoothSeconds);
+        updateRings(ma, hours, minutes, smoothSeconds);
       }
 
       // Eon ring + event markers fade in sync with Earth at cycle endpoints.
@@ -2983,7 +2993,7 @@
       _elEonEdgeShadow     = document.getElementById('eon-edge-shadow');
       _elMinuteShadow      = document.getElementById('minute-shadow');
       _elMinuteHandIndicator = document.getElementById('minute-hand-indicator');
-      if (_elFutureEonRingBg) _elFutureEonRingBg.style.background = '#000000';
+      if (_elFutureEonRingBg) _elFutureEonRingBg.style.background = '#111111';
       _buildEonRingBackground();
       _buildFutureEonRingBackground();
       tick();
