@@ -468,10 +468,10 @@
     const EARTH_AGE = 4540;
     
     const EONS = [
-      { name: 'Hadean', start: 4540, end: 4000, subtitle: 'Molten Earth' },
-      { name: 'Archean', start: 4000, end: 2500, subtitle: 'First life' },
-      { name: 'Proterozoic', start: 2500, end: 538.8, subtitle: 'Oxygen rises' },
-      { name: 'Phanerozoic', start: 538.8, end: 0, subtitle: 'Life in full' }
+      { name: 'Hadean', start: 4540, end: 4000, subtitle: 'Realm of hell' },
+      { name: 'Archean', start: 4000, end: 2500, subtitle: 'The ancient time' },
+      { name: 'Proterozoic', start: 2500, end: 538.8, subtitle: 'Earlier life' },
+      { name: 'Phanerozoic', start: 538.8, end: 0, subtitle: 'Visible life' }
     ];
 
     const EVENTS = [
@@ -544,11 +544,11 @@
     // reverses the past ring (bright → dark) so the future fades into night.
     // NOTE: names are placeholders — final Greek-root names TBD by the user.
     const FUTURE_EONS = [
-      { name: 'Phanerozoic', start: 0,     end: -650,  subtitle: 'Life in full',     opacity: 0.70 },
-      { name: 'Phthizoic',   start: -650,  end: -1500, subtitle: 'Waning life',      opacity: 0.56 },
-      { name: 'Xerean',      start: -1500, end: -3000, subtitle: 'The great drying', opacity: 0.42 },
-      { name: 'Eremoic',     start: -3000, end: -3500, subtitle: 'Empty Earth',      opacity: 0.28 },
-      { name: 'Eschatean',   start: -3500, end: -4540, subtitle: 'As it began',      opacity: 0.11 },
+      { name: 'Phanerozoic', start: 0,     end: -650,  subtitle: 'Visible life',      opacity: 0.70 },
+      { name: 'Meiozoic',   start: -650,  end: -1500, subtitle: 'Diminishing life',  opacity: 0.56 },
+      { name: 'Xerean',      start: -1500, end: -3000, subtitle: 'The dry age',      opacity: 0.42 },
+      { name: 'Eremoic',     start: -3000, end: -3500, subtitle: 'The desolate age', opacity: 0.28 },
+      { name: 'Eschatean',   start: -3500, end: -4540, subtitle: 'The final age',    opacity: 0.11 },
     ];
 
     // === UTILITY FUNCTIONS ===
@@ -584,10 +584,10 @@
     function getEonLabel(ma) {
       if (ma < 0) {
         const e = FUTURE_EONS.find(p => ma <= p.start && ma > p.end);
-        return e ? `<tspan font-weight="700">${e.name} Eon</tspan> <tspan fill="none" stroke="#ffffff" stroke-width="0.5">●</tspan> ${e.subtitle}` : 'Future Earth';
+        return e ? `${e.name} Eon <tspan fill="none" stroke="#ffffff" stroke-width="0.5">●</tspan> ‘${e.subtitle}’` : 'Future Earth';
       }
       const eon = getCurrentEon(ma);
-      return eon ? `<tspan font-weight="700">${eon.name} Eon</tspan> <tspan fill="none" stroke="#ffffff" stroke-width="0.5">●</tspan> ${eon.subtitle}` : '';
+      return eon ? `${eon.name} Eon <tspan fill="none" stroke="#ffffff" stroke-width="0.5">●</tspan> ‘${eon.subtitle}’` : '';
     }
     
     function formatMa(ma) {
