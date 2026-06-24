@@ -56,7 +56,7 @@
     }
 
     body {
-      background: #ffffff;
+      background: #000000;
       color: var(--text);
       font-family: var(--font-sans);
       -webkit-font-smoothing: antialiased;
@@ -263,7 +263,7 @@
     /* === Ring system (Phase 2) === */
     /* All ring divs: centred on the clock, circular, non-interactive */
     #outer-ring-div, #outer-ring-bg, #eon-ring-bg, #eon-ring-div,
-    #future-eon-ring-bg, #future-eon-ring-div,
+    #future-eon-ring-bg, #future-eon-ring-div, #eon-edge-shadow,
     #minute-ring-shadow, #hour-ring-shadow, #minute-shadow {
       position: absolute;
       top: 50%;
@@ -318,6 +318,14 @@
     #future-eon-ring-bg, #future-eon-ring-div {
       width: calc(var(--clock-size) * 120 / 200);
       height: calc(var(--clock-size) * 120 / 200);
+    }
+
+    #eon-edge-shadow {
+      width: calc(var(--clock-size) * 120 / 200);
+      height: calc(var(--clock-size) * 120 / 200);
+      -webkit-mask: radial-gradient(circle closest-side, transparent 55%, black 55%);
+      mask: radial-gradient(circle closest-side, transparent 55%, black 55%);
+      opacity: 0;
     }
 
     /* Ring grain — black speckle at 25% (matches the original SVG eon-ring noise).
@@ -384,6 +392,7 @@
          reveal so they wipe over the past ring as the afternoon advances. -->
     <div id="future-eon-ring-bg"></div>
     <div id="future-eon-ring-div"></div>
+    <div id="eon-edge-shadow"></div>
     <!-- Hour/eon-ring shadow: above both eon rings, below the globe — its inner
          (opaque) half is hidden by the globe, so it only darkens the eon ring's
          inner edge. -->
@@ -499,10 +508,10 @@
       { name: 'First apes', time: 25, desc: 'Our branch of the tree begins.' },
       { name: 'Humans appear', time: 0.3, desc: 'Homo sapiens emerges in Africa.<br>We are this new.' }
     ];
-    
+
     // Future events — time values are negative Ma (future convention: -50 = 50 Ma from now)
     const FUTURE_EVENTS = [
-      { name: 'Sixth mass extinction', time: -0.001,
+      { name: 'Sixth mass extinction', time: 0,
         displayText: 'Now',
         desc: 'We break the biosphere, then vanish forever.<br>Half of all life goes with us.' },
       { name: 'Biosphere recovers', time: -20,
@@ -2073,6 +2082,21 @@
           }
         }
       }
+
+      // — Eon edge shadow: 12° black fade ahead of the handle in the outer ring —
+      // Follows the scrubber position (scrub or live), visible whenever in PM.
+      if (_elEonEdgeShadow) {
+        const showShadow = ma <= 0 && (scrub.active ? true : _lastFutureEonRevealDeg > 0 && _lastFutureEonRevealDeg < 360);
+        if (showShadow) {
+          const edgeAngle = (maToAngle(ma) + 90 + 360) % 360;
+          _elEonEdgeShadow.style.background =
+            `conic-gradient(from ${edgeAngle.toFixed(1)}deg at center,` +
+            `rgba(0,0,0,1) 0deg,rgba(0,0,0,0) 36deg,transparent 36deg,transparent 360deg)`;
+          _elEonEdgeShadow.style.opacity = '1';
+        } else {
+          _elEonEdgeShadow.style.opacity = '0';
+        }
+      }
     }
 
     // Both eon rings (past + future) are now CSS divs built/revealed in
@@ -2351,7 +2375,7 @@
       const ACTIVE_ZONE = 4;
       const OVERLAP_ZONE = 16.5; // = handle visual radius
       const MA_PROXIMITY = 300;
-      const isMaFuture = ma < 0;
+      const isMaFuture = ma <= 0;
 
       // In live mode skip the full scan when no dot is nearby and no event is active
       if (!scrub.active && _activeEventMa === null) {
@@ -2578,6 +2602,7 @@
       // stuck on the scrub position's colour.
       _lastEonAccentHex = null;
       _lastOuterRingAngle = -1;
+      _needsIndicatorUpdate = true;
     }
 
     function setupScrubbing(container, svg) {
@@ -2724,6 +2749,7 @@
     // expensive conic-gradient / SVG repaints off the per-frame path on the Pi.
     let _lastWholeSecond = -1;
     let _lastWholeMinute = -1;
+    let _needsIndicatorUpdate = false;
     let _lastEonOp = null;
     let _lastEvMarkerOp = null;
     let _lastIndicatorX = null;
@@ -2742,7 +2768,7 @@
     let _elPositionIndicator, _elEventMarkerOverlay;
     // Ring system (Phase 2 + Phase 5 future ring)
     let _elOuterRingDiv, _elEonRingDiv, _elMinuteShadow;
-    let _elFutureEonRingBg, _elFutureEonRingDiv;
+    let _elFutureEonRingBg, _elFutureEonRingDiv, _elEonEdgeShadow;
 
     // Cached dot data — built once in drawEventMarkers, iterated each frame
     let _eventDotCache = [];
@@ -2821,7 +2847,7 @@
       const ma = scrub.active ? scrub.ma : timeToMa(hours, minutes, smoothSeconds);
       _currentMa = ma;
       document.body.classList.toggle('future', ma < 0);
-      _updateMarkerHalfVisibility(ma < 0);
+      _updateMarkerHalfVisibility(ma <= 0);
       tickMarkerFade();
       updateDeepTimeDisplay(ma);
 
@@ -2842,7 +2868,10 @@
 
       // Position indicator + event markers run after updateEarth so the accent
       // colour is current when event text/dots are drawn.
-      if (scrub.active || minuteTick) drawPositionIndicator(maToAngle(ma));
+      if (scrub.active || minuteTick || _needsIndicatorUpdate) {
+        _needsIndicatorUpdate = false;
+        drawPositionIndicator(maToAngle(ma));
+      }
 
       updateRings(ma, minutes, smoothSeconds);
 
@@ -2903,6 +2932,7 @@
       _elEonRingDiv        = document.getElementById('eon-ring-div');
       _elFutureEonRingBg   = document.getElementById('future-eon-ring-bg');
       _elFutureEonRingDiv  = document.getElementById('future-eon-ring-div');
+      _elEonEdgeShadow     = document.getElementById('eon-edge-shadow');
       _elMinuteShadow      = document.getElementById('minute-shadow');
       if (_elFutureEonRingBg) _elFutureEonRingBg.style.background = '#000000';
       _buildEonRingBackground();
