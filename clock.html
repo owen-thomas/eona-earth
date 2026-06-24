@@ -200,7 +200,7 @@
     .margin-text {
       font-family: var(--font-sans);
       font-size: 8px;
-      font-weight: 400;
+      font-weight: 300;
       letter-spacing: 0.2px;
       color: #ffffff;
       line-height: 1;
@@ -211,7 +211,7 @@
 
     #margin-top {
       position: absolute;
-      top: calc(50% - var(--margin-mid-r));
+      top: calc(50% - var(--clock-size) * 183 / 400);
       left: 50%;
       transform: translate(-50%, -50%);
       z-index: 10;
@@ -222,7 +222,7 @@
     .ring-text {
       font-family: var(--font-sans);
       font-size: 8px;
-      font-weight: 400;
+      font-weight: 300;
       letter-spacing: 0.2px;
       fill: #ffffff;
       /* Centre the glyphs' vertical extent on the arc (r=187, margin midline)
@@ -355,6 +355,16 @@
       background: radial-gradient(circle closest-side,
         rgba(0,0,0,1) 80%, rgba(0,0,0,0) 100%);
     }
+    #minute-hand-indicator {
+      position: absolute;
+      width: 2px;
+      height: calc(var(--clock-size) * 174 / 400);
+      bottom: 50%;
+      left: 50%;
+      margin-left: -1px;
+      transform-origin: bottom center;
+      pointer-events: none;
+    }
     #hour-ring-shadow {
       width: calc(var(--clock-size) * 120 / 200);
       height: calc(var(--clock-size) * 120 / 200);
@@ -386,6 +396,7 @@
          inner (opaque) half is hidden by the eon backing, so it only darkens the
          outer ring's inner edge. -->
     <div id="minute-ring-shadow"></div>
+    <div id="minute-hand-indicator"></div>
     <div id="eon-ring-bg"></div>
     <div id="eon-ring-div"></div>
     <!-- Future eon ring (PM): black backing + conic, both masked to the future
@@ -446,7 +457,7 @@
 
     <!-- Logo — top margin -->
     <div id="margin-top" class="margin-text">
-      <img id="logo-clock" src="images/logo-clock.svg" alt="Eona" width="76" height="19">
+      <img id="logo-clock" src="images/logo-clock.svg" alt="Eona" width="84" height="21">
     </div>
 
 
@@ -2028,6 +2039,10 @@
           _elMinuteShadow.style.background =
             `conic-gradient(from ${minuteAngle.toFixed(2)}deg,rgba(0,0,0,0.35) 0%,rgba(0,0,0,0) 22%,rgba(0,0,0,0) 100%)`;
         }
+        if (_elMinuteHandIndicator) {
+          _elMinuteHandIndicator.style.background = _currentAccentHex || '#E34E2A';
+          _elMinuteHandIndicator.style.transform = `rotate(${minuteAngle.toFixed(2)}deg)`;
+        }
       }
 
       // — Past eon ring: progressive reveal (full in PM, sweeps in AM) —
@@ -2183,6 +2198,15 @@
         const angle = maToAngle(event.time); // works for both positive and negative time values
         const pos = polarToCartesian(cx, cy, orbitRadius, angle + 90);
 
+        const bg = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+        bg.setAttribute('cx', pos.x);
+        bg.setAttribute('cy', pos.y);
+        bg.setAttribute('r', '2');
+        bg.setAttribute('fill', '#ffffff');
+        bg.setAttribute('pointer-events', 'none');
+        bg.dataset.eventFuture = isFuture ? 'true' : 'false';
+        markers.appendChild(bg);
+
         const dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
         dot.setAttribute('cx', pos.x);
         dot.setAttribute('cy', pos.y);
@@ -2190,7 +2214,8 @@
         dot.setAttribute('pointer-events', 'none');
         dot.setAttribute('data-event-dot', index);
         dot.dataset.eventFuture = isFuture ? 'true' : 'false';
-        dot.style.fill = '#ffffff';
+        const [_ir, _ig, _ib] = _currentAccentRgb;
+        dot.style.fill = rgbToHex(Math.round(_ir * 0.5 + 255 * 0.5), Math.round(_ig * 0.5 + 255 * 0.5), Math.round(_ib * 0.5 + 255 * 0.5));
         dot.style.transition = 'fill 0.5s ease';
 
         const hitArea = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
@@ -2246,9 +2271,13 @@
         _indicatorHandle.style.stroke = '#ffffff';
         _indicatorHandle.style.strokeWidth = '1px';
       } else {
-        // Handle is white at rest (accent now lives on the rings/events);
-        // a subtle dim on hover gives feedback without a colour shift.
-        _indicatorHandle.style.fill = _handleHovered ? '#CCCCCC' : '#ffffff';
+        if (_handleHovered) {
+          const [r, g, b] = _currentAccentRgb;
+          const hoverHex = rgbToHex(Math.round(r + (255 - r) * 0.4), Math.round(g + (255 - g) * 0.4), Math.round(b + (255 - b) * 0.4));
+          _indicatorHandle.style.fill = hoverHex;
+        } else {
+          _indicatorHandle.style.fill = _currentAccentHex || '#E34E2A';
+        }
         _indicatorHandle.style.stroke = 'transparent';
         _indicatorHandle.style.strokeWidth = '1px';
       }
@@ -2270,7 +2299,7 @@
         _indicatorHandle.setAttribute('r', '16.5');
         _indicatorHandle.setAttribute('pointer-events', 'none');
         _indicatorHandle.style.transition = 'fill 0.5s ease, stroke 0.5s ease';
-        _indicatorHandle.style.fill = '#ffffff';
+        _indicatorHandle.style.fill = _currentAccentHex || '#E34E2A';
         _indicatorHandle.style.stroke = 'transparent';
         _indicatorHandle.style.strokeWidth = '1px';
 
@@ -2388,18 +2417,19 @@
         }
       }
 
-      const activeDotColor = _currentAccentHex;
+
       const overlay = _elEventMarkerOverlay;
       for (let idx = 0; idx < dots.length; idx++) {
         const dot = dots[idx];
         const entry = _eventDotCache[idx];
         const dist = entry ? Math.hypot(entry.x - scrubX, entry.y - scrubY) : Infinity;
-        dot.style.fill = dist < OVERLAP_ZONE ? '#999999' : '#ffffff';
+        const [_dr, _dg, _db] = _currentAccentRgb;
+        dot.style.fill = rgbToHex(Math.round(_dr * 0.5 + 255 * 0.5), Math.round(_dg * 0.5 + 255 * 0.5), Math.round(_db * 0.5 + 255 * 0.5));
       }
       if (closestCacheIdx >= 0 && closestCacheEntry) {
         overlay.setAttribute('cx', closestCacheEntry.x);
         overlay.setAttribute('cy', closestCacheEntry.y);
-        overlay.style.fill = activeDotColor;
+        overlay.style.fill = _handleLatched ? (_currentAccentHex || '#E34E2A') : '#000000';
         overlay.style.display = '';
         showEventDescription(closestCacheEntry.isFuture ? FUTURE_EVENTS[closestCacheEntry.index] : EVENTS[closestCacheEntry.index]);
       } else {
@@ -2445,9 +2475,9 @@
         const accent = _currentAccentHex || '#ffffff';
         const desc = event.desc ? event.desc.replace(/<br\s*\/?>/gi, ' ') : '';
         if (desc) {
-          eraEl.innerHTML = `<tspan font-weight="700" fill="${accent}">${event.name} ●</tspan> ${desc}`;
+          eraEl.innerHTML = `<tspan font-weight="600" fill="${accent}">${event.name} ●</tspan> ${desc}`;
         } else {
-          eraEl.innerHTML = `<tspan font-weight="700" fill="${accent}">${event.name}</tspan>`;
+          eraEl.innerHTML = `<tspan font-weight="600" fill="${accent}">${event.name}</tspan>`;
         }
       }
     }
@@ -2538,10 +2568,6 @@
       scrub.displayStartSecs = displayStartSecs;
       scrub.rotationOffset = earthSphere ? earthSphere.rotation.y : 0;
       document.body.classList.add('scrubbing');
-      if (_elOuterRingDiv) {
-        _elOuterRingDiv.style.transition = 'opacity 0.3s ease';
-        _elOuterRingDiv.style.opacity = '0';
-      }
       // Ghost handle: snap to current position (no flash), then fade in after a
       // short delay so it doesn't visually compete with grabbing the main handle.
       const ghost = document.getElementById('ghost-handle');
@@ -2572,6 +2598,10 @@
       if (_elOuterRingDiv) {
         _elOuterRingDiv.style.transition = 'opacity 0.3s ease';
         _elOuterRingDiv.style.opacity = '1';
+      }
+      if (_elMinuteHandIndicator) {
+        _elMinuteHandIndicator.style.transition = 'opacity 0.3s ease';
+        _elMinuteHandIndicator.style.opacity = '1';
       }
       _lastWholeSecond = -1;
       _lastWholeMinute = -1;
@@ -2743,7 +2773,7 @@
     let _elEventMarkers, _elGhostHandle;
     let _elPositionIndicator, _elEventMarkerOverlay;
     // Ring system (Phase 2 + Phase 5 future ring)
-    let _elOuterRingDiv, _elEonRingDiv, _elMinuteShadow;
+    let _elOuterRingDiv, _elEonRingDiv, _elMinuteShadow, _elMinuteHandIndicator;
     let _elFutureEonRingBg, _elFutureEonRingDiv, _elEonEdgeShadow;
 
     // Cached dot data — built once in drawEventMarkers, iterated each frame
@@ -2849,7 +2879,14 @@
         drawPositionIndicator(maToAngle(ma));
       }
 
-      updateRings(ma, minutes, smoothSeconds);
+      if (scrub.active && scrub.displayStartSecs != null) {
+        const displaySecs = ((scrub.displayStartSecs + scrub.cumulativeAngleDelta / 360 * 43200) % 86400 + 86400) % 86400;
+        const scrubMin = Math.floor((displaySecs % 3600) / 60);
+        const scrubSec = displaySecs % 60;
+        updateRings(ma, scrubMin, scrubSec);
+      } else {
+        updateRings(ma, minutes, smoothSeconds);
+      }
 
       // Eon ring + event markers fade in sync with Earth at cycle endpoints.
       {
@@ -2874,6 +2911,7 @@
           // Outer ring (minute hand) fades with the cycle too — but only when not
           // scrubbing, so enterScrub/exitScrub keep control of its opacity there.
           if (_elOuterRingDiv && !scrub.active) _elOuterRingDiv.style.opacity = op;
+          if (_elMinuteHandIndicator && !scrub.active) _elMinuteHandIndicator.style.opacity = op;
           // future-eon-ring-bg (black blocker) intentionally NOT faded — stays
           // opaque so the past ring never shows through during the midnight fade.
         }
@@ -2909,6 +2947,7 @@
       _elFutureEonRingDiv  = document.getElementById('future-eon-ring-div');
       _elEonEdgeShadow     = document.getElementById('eon-edge-shadow');
       _elMinuteShadow      = document.getElementById('minute-shadow');
+      _elMinuteHandIndicator = document.getElementById('minute-hand-indicator');
       if (_elFutureEonRingBg) _elFutureEonRingBg.style.background = '#000000';
       _buildEonRingBackground();
       _buildFutureEonRingBackground();
