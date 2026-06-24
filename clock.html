@@ -960,7 +960,7 @@
         noiseThresh1: 0.48, noiseThresh2: 0.56,
         surfaceIntensity: 1.00,
         cloudDensity: 0.28, cloudShape: 0.35, polarIce: 0.0,
-        useLandSea: 0.0,
+        useLandSea: 0.0, coastSoftness: 0.01,
         surfaceApproach: 'screenprint', cloudApproach: 'warped',
         seed: 9.0 },
 
@@ -975,7 +975,7 @@
         noiseThresh1: 0.50, noiseThresh2: 0.60,
         surfaceIntensity: 1.00,
         cloudDensity: 0.20, cloudShape: 0.25, polarIce: 0.0,
-        useLandSea: 0.0,
+        useLandSea: 0.0, coastSoftness: 0.01,
         surfaceApproach: 'screenprint', cloudApproach: 'warped',
         seed: 9.5 },
 
@@ -990,7 +990,7 @@
         noiseThresh1: 0.52, noiseThresh2: 0.64,
         surfaceIntensity: 1.00,
         cloudDensity: 0.14, cloudShape: 0.15, polarIce: 0.0,
-        useLandSea: 0.0,
+        useLandSea: 0.0, coastSoftness: 0.01,
         surfaceApproach: 'screenprint', cloudApproach: 'warped',
         seed: 10.0 },
 
@@ -1005,7 +1005,7 @@
         noiseThresh1: 0.54, noiseThresh2: 0.68,
         surfaceIntensity: 1.00,
         cloudDensity: 0.10, cloudShape: 0.00, polarIce: 0.0,
-        useLandSea: 0.0,
+        useLandSea: 0.0, coastSoftness: 0.01,
         surfaceApproach: 'screenprint', cloudApproach: 'warped',
         seed: 10.5 },
 
@@ -1020,7 +1020,7 @@
         noiseThresh1: 0.56, noiseThresh2: 0.72,
         surfaceIntensity: 1.00,
         cloudDensity: 0.05, cloudShape: 0.00, polarIce: 0.0,
-        useLandSea: 0.0,
+        useLandSea: 0.0, coastSoftness: 0.01,
         surfaceApproach: 'screenprint', cloudApproach: 'warped',
         seed: 11.0 },
 
@@ -1035,7 +1035,7 @@
         noiseThresh1: 0.54, noiseThresh2: 0.65,
         surfaceIntensity: 1.00,
         cloudDensity: 0.03, cloudShape: 0.00, polarIce: 0.0,
-        useLandSea: 0.0,
+        useLandSea: 0.0, coastSoftness: 0.01,
         surfaceApproach: 'screenprint', cloudApproach: 'warped',
         seed: 11.5 },
 
@@ -1050,7 +1050,7 @@
         noiseThresh1: 0.52, noiseThresh2: 0.58,
         surfaceIntensity: 1.00,
         cloudDensity: 0.00, cloudShape: 0.00, polarIce: 0.0,
-        useLandSea: 0.0,
+        useLandSea: 0.0, coastSoftness: 0.01,
         surfaceApproach: 'screenprint', cloudApproach: 'warped',
         seed: 12.0 },
 
@@ -1065,7 +1065,7 @@
         noiseThresh1: 0.46, noiseThresh2: 0.56,
         surfaceIntensity: 1.00,
         cloudDensity: 0.00, cloudShape: 0.00, polarIce: 0.0,
-        useLandSea: 0.0,
+        useLandSea: 0.0, coastSoftness: 0.01,
         surfaceApproach: 'screenprint', cloudApproach: 'warped_layers',
         seed: 12.5 },
 
@@ -1080,7 +1080,7 @@
         noiseThresh1: 0.46, noiseThresh2: 0.56,
         surfaceIntensity: 1.00,
         cloudDensity: 0.00, cloudShape: 0.00, polarIce: 0.0,
-        useLandSea: 0.0,
+        useLandSea: 0.0, coastSoftness: 0.01,
         surfaceApproach: 'screenprint', cloudApproach: 'warped_layers',
         seed: 13.0 },
     ];
@@ -1734,22 +1734,6 @@
       // Cloud approach: 0.0=warped, 2.0=warped_layers
       const CLOUD_APPROACH_ID = { warped: 0.0, warped_layers: 2.0 };
 
-      function setState(prefix, S) {
-        u[prefix + 'C0'].value.set(S.rgb[0][0], S.rgb[0][1], S.rgb[0][2]);
-        u[prefix + 'C1'].value.set(S.rgb[1][0], S.rgb[1][1], S.rgb[1][2]);
-        u[prefix + 'C2'].value.set(S.rgb[2][0], S.rgb[2][1], S.rgb[2][2]);
-        u[prefix + 'C3'].value.set(S.rgb[3][0], S.rgb[3][1], S.rgb[3][2]);
-        u[prefix + 'CloudDens'].value  = CLOUDS_ENABLED ? S.cloudDensity : 0.0;
-        u[prefix + 'SurfIntens'].value = S.surfaceIntensity;
-        u[prefix + 'CloudShape'].value = S.cloudShape;
-        u[prefix + 'PolarIce'].value   = S.polarIce;
-        u[prefix + 'Seed'].value       = S.seed;
-        u[prefix + 'UseLandSea'].value = S.useLandSea;
-        u[prefix + 'CoastSoft'].value  = S.coastSoftness;
-        u[prefix + 'NoiseThresh1'].value = S.noiseThresh1 ?? 0.46;
-        u[prefix + 'NoiseThresh2'].value = S.noiseThresh2 ?? 0.56;
-        u[prefix + 'CloudApproach'].value = CLOUD_APPROACH_ID[S.cloudApproach ?? 'warped'] ?? 0.0;
-      }
       // Pi mode: interpolate colours and atmosphere params on the CPU so
       // transitions crossfade without running a dual-render in the shader
       // (which would double the V3D instruction count and crash).
@@ -2237,6 +2221,8 @@
         makeDot(event, index, true);
       });
 
+      _eventDotEls = Array.from(markers.querySelectorAll('[data-event-dot]'));
+
       // Overlay dot — always last in the group so it paints on top of all others
       const overlay = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
       overlay.setAttribute('id', 'event-marker-overlay');
@@ -2383,35 +2369,34 @@
         if (!nearAny) return;
       }
 
-      const dots = document.querySelectorAll('#event-markers [data-event-dot]');
-      let closestDot = null;
+      const dots = _eventDotEls;
+      let closestCacheIdx = -1;
       let closestCacheEntry = null;
       let closestDist = Infinity;
       let scrubOverMarker = false;
 
-      _eventDotCache.forEach((entry) => {
-        // Half filter first — prevents hidden dots from latching the handle (item 6 fix)
-        if (entry.isFuture !== isMaFuture) return;
+      for (let i = 0; i < _eventDotCache.length; i++) {
+        const entry = _eventDotCache[i];
+        if (entry.isFuture !== isMaFuture) continue;
         const dist = Math.hypot(entry.x - scrubX, entry.y - scrubY);
         if (dist < OVERLAP_ZONE) scrubOverMarker = true;
         const event = entry.isFuture ? FUTURE_EVENTS[entry.index] : EVENTS[entry.index];
         if (dist <= ACTIVE_ZONE && dist < closestDist && Math.abs(event.time - ma) < MA_PROXIMITY) {
           closestDist = dist;
           closestCacheEntry = entry;
-          closestDot = dots[_eventDotCache.indexOf(entry)];
+          closestCacheIdx = i;
         }
-      });
+      }
 
       const activeDotColor = _currentAccentHex;
       const overlay = _elEventMarkerOverlay;
-      // Event dots within the handle's overlap zone read grey; the active dot is
-      // painted on top by the overlay (accent when latched).
-      dots.forEach((dot, idx) => {
+      for (let idx = 0; idx < dots.length; idx++) {
+        const dot = dots[idx];
         const entry = _eventDotCache[idx];
         const dist = entry ? Math.hypot(entry.x - scrubX, entry.y - scrubY) : Infinity;
         dot.style.fill = dist < OVERLAP_ZONE ? '#999999' : '#ffffff';
-      });
-      if (closestDot && closestCacheEntry) {
+      }
+      if (closestCacheIdx >= 0 && closestCacheEntry) {
         overlay.setAttribute('cx', closestCacheEntry.x);
         overlay.setAttribute('cy', closestCacheEntry.y);
         overlay.style.fill = activeDotColor;
@@ -2428,10 +2413,6 @@
       } else if (!_handleLatched) {
         _applyHandleOutline(false);
       }
-    }
-    
-    function updateClockHands(hours, minutes, seconds) {
-      // Minute hand removed — outer ring CSS gradient handles the hand display.
     }
     
     function updateTimeDisplay(hours, minutes, seconds) {
@@ -2480,10 +2461,6 @@
     }
     
     // === EVENTS ===
-    function setupToggles() {
-      // Toggles removed — all layers always visible
-    }
-    
     function setupEventListeners() {
       const svg = document.getElementById('infographic-layer');
       const container = document.querySelector('.clock-container');
@@ -2742,7 +2719,6 @@
     let loopPaused = false;
 
     // Per-frame deduplication caches — skip DOM/style writes when value unchanged
-    let _lastMinuteAngle = null; // unused — kept for reference
     // Once-per-second gate for the clock hands. The render loop runs at 30fps for
     // the rotating globe, but the minute hand (outer ring), minute shadow, and
     // hour hand (scrubber) only need to step once per second — keeping their
@@ -2772,6 +2748,7 @@
 
     // Cached dot data — built once in drawEventMarkers, iterated each frame
     let _eventDotCache = [];
+    let _eventDotEls = [];   // cached NodeList of dot SVG elements (parallel to _eventDotCache)
 
     document.addEventListener('visibilitychange', () => {
       if (document.hidden) {
@@ -2839,7 +2816,6 @@
         updateTimeDisplay(hours, minutes, seconds);
       }
 
-      updateClockHands(hours, minutes, smoothSeconds);
       // Minute/hour dots step once per second (internally deduped to minute/hour).
       if (secondTick) updateDotVisibility(hours, minutes);
 
@@ -2916,7 +2892,6 @@
       drawEventMarkers();
       drawClockDots();
       initEarth();
-      setupToggles();
       setupEventListeners();
       _elEarthLayer        = document.getElementById('earth-layer');
       _elHazeLayer         = document.getElementById('haze-layer');
