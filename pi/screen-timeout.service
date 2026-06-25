@@ -1,0 +1,11 @@
+[Unit]
+Description=Screen timeout for eona clock
+After=graphical-session.target
+
+[Service]
+ExecStart=/home/pi/eona/pi/screen-timeout.sh
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target

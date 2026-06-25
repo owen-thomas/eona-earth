@@ -193,6 +193,37 @@ V3D's limit sits somewhere between ~20 and ~24 `noise3d`-equivalent calls in the
 
 ---
 
+## Screen Timeout
+
+Blanks the HDMI output after 1 hour of no touch/mouse input. Any touch wakes the display instantly.
+
+### Install (one-time, on the Pi)
+
+```bash
+sudo apt install swayidle wlopm
+chmod +x ~/eona/pi/screen-timeout.sh
+mkdir -p ~/.config/systemd/user
+ln -s ~/eona/pi/screen-timeout.service ~/.config/systemd/user/screen-timeout.service
+systemctl --user daemon-reload
+systemctl --user enable --now screen-timeout.service
+```
+
+### Verify
+
+```bash
+# Check it's running
+systemctl --user status screen-timeout.service
+
+# Test manually (blank now, touch to wake)
+wlopm --off HDMI-A-1
+```
+
+If `wlopm` can't find the output, check the name: `wlopm` (no args) lists available outputs.
+
+If `swayidle` doesn't detect idle (e.g. labwc doesn't expose `ext-idle-notify-v1`), the fallback is a cron-based approach — see git history.
+
+---
+
 ## Workflow
 
 1. Edit `clock.html` on Mac
