@@ -87,11 +87,17 @@ case "$1" in
     ;;
   pi)
     build PI "$PI_OUT"
+    cp -r images dist/pi/images
+    cp -r fonts dist/pi/fonts
+    cp -r lib dist/pi/lib
     ;;
   all)
     build WEB "$WEB_OUT"
     cp -r images dist/web/images
     build PI "$PI_OUT"
+    cp -r images dist/pi/images
+    cp -r fonts dist/pi/fonts
+    cp -r lib dist/pi/lib
     ;;
   *)
     echo "usage: $0 web | pi | all" >&2
