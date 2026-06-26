@@ -28,12 +28,11 @@ The goal is visceral understanding — not education, but feeling. The "holy shi
 - **Earth colours**: See `colour-reference.md` for full per-phase palettes
 
 ### Typography
-- **Space Mono**: All UI text — data, numbers, labels, era names, timestamp, time display
-- **Fraunces**: Event descriptions (Regular 16px, line-height 1.3)
+- **Space Grotesk**: Primary UI font — margin text, ring labels, general body text (weight 300–700)
+- **Space Mono**: Data displays only — `#years-display`, `#time-display` (arc text in the margin ring)
 - `-webkit-font-smoothing: antialiased` on body to eliminate subpixel glow on dark backgrounds
-- Most info panel text uses `line-height: 1` + `text-box: trim-both cap alphabetic` for cap-to-baseline vertical trim
-- **Info panel secondary text** (era, time, event name, return-to-now): Space Mono Regular 10px, uppercase, 1px letter-spacing, `#999999`. This is the "mono/regular-xs" scale.
-- **Accent text** (`#years-display`, `#event-name-suffix`): same 10px/regular/uppercase/1px-LS treatment but `#E34E2A`.
+- Margin text (`#margin-top`, `.ring-text`) uses `font-size: 8px`, `font-weight: 300`, `letter-spacing: 0.2px` — scales with `--clock-size` via SVG viewBox or proportional CSS
+- **Accent text** (`#years-display`): `font-family: 'Space Mono'`, same 8px treatment, `fill: #ffffff`
 
 ### Vibe
 Cold precision (Nothing/CMF) meets warm illustration (Icinori/Whole Earth). Restrained palette with one strong accent.
@@ -49,14 +48,14 @@ Cold precision (Nothing/CMF) meets warm illustration (Icinori/Whole Earth). Rest
 - 1 hour ≈ 378 Ma · 1 minute ≈ 6.3 Ma · 1 second ≈ 105,000 years
 - `timeToMa` uses `(hours % 12) / 12` so the 12-hour AM/PM cycles both cover the full sequence
 
-### Three Toggleable Layers
-1. **Earth** (`#earth-layer`): WebGL sphere, rotates 1 rev/60 s. Toggled via `data-layer="earth"`. Haze layers (`#haze-layer`, `#dark-haze-layer`, `#earth-shadow`) are hidden when this layer is toggled off.
-2. **Eons** (`#infographic-layer`): SVG — eon pie slices with progressive reveal. Event marker dots and hit areas are toggled with this layer via JS (dots in `#persistent-layer`, hit areas disabled via `pointer-events`).
+### Layers
+1. **Earth** (`#earth-layer`): WebGL sphere, rotates 1 rev/60 s. Haze layers (`#haze-layer`, `#dark-haze-layer`, `#earth-shadow`) share its visibility.
+2. **Eons** (`#infographic-layer`): SVG — eon pie slices with progressive reveal.
 3. **Clock** (`#clock-layer`): SVG minute hand + 60 minute tick marks (`#clock-hour-markers`). `z-index: 1` so it renders above `#persistent-layer`.
 
-Layers stack bottom-to-top: `#infographic-layer` → `#earth-shadow` → `#earth-layer` → `#haze-layer` → `#dark-haze-layer` → `#persistent-layer` → `#clock-layer` (z-index 1). Each toggleable layer toggles independently via `.toggle` buttons.
+Layers stack bottom-to-top: `#infographic-layer` → `#earth-shadow` → `#earth-layer` → `#haze-layer` → `#dark-haze-layer` → `#persistent-layer` → `#clock-layer` (z-index 1). All layers are always visible — there are no toggle buttons in the current design.
 
-**`#persistent-layer`** — a non-toggleable SVG always visible, containing: `#clock-eon-markers` (12 hour ticks), `#position-indicator` (scrubber handle), `#event-markers` (dots, shown/hidden with eon layer), `#event-hit-areas` (transparent hit circles, pointer-events toggled with eon layer).
+**`#persistent-layer`** — always-visible SVG, containing: `#clock-eon-markers` (12 hour ticks), `#position-indicator` (scrubber handle), `#event-markers` (dots; future vs. past halves swapped by `_doMarkerSwap()`), `#event-hit-areas` (transparent hit circles).
 
 ### Interaction
 - **Scrub handle** (orange/outline circle, r=24, orbit r=156): drag to scrub through geological time. Globe rotation follows. Acts as the "hour hand" — its position on the ring shows the current geological age.
@@ -65,7 +64,6 @@ Layers stack bottom-to-top: `#infographic-layer` → `#earth-shadow` → `#earth
   - `_handleLatched` flag tracks outline state — only set during `scrub.active`, reset in `exitScrub`.
 - **Drag anywhere else** on the clock: rotates the globe only; time stays live.
 - **Return to now** button: exits scrub mode, restores handle to orange, restores minute hand + dot. Styled: Space Mono Regular 10px uppercase 1px letter-spacing black (`#000000`), padding 8px 12px, orange fill (`#E34E2A`), pill shape (`border-radius: 999px`). `display: none` by default; `display: block` when `body.scrubbing`. `transform: translateY(8px)` to optically centre it with the time text.
-- **`pointer-events: none`** on `.info-panel` — prevents info bar from blocking clock drags. Interactive children (button, toggles) have `pointer-events: auto` selectively re-enabled.
 - Pointer events are on `.clock-container` div (not the SVG) so empty-space drags work reliably.
 - **Scrub handle detection is geometric** — `pointerdown` converts the click to SVG coordinates and checks distance to the handle centre (r=24 on orbit r=156). Does not rely on `e.target` because hit areas in `#event-hit-areas` sit on top of `_indicatorGrab` in the DOM and intercept events.
 - **Grab cursor** is managed on `container.style.cursor` via `mousemove`, using the same geometric distance check. Hit areas have no `cursor` style set so they inherit from the container, ensuring `grab`/`grabbing` always shows over the handle regardless of what element is on top.
@@ -75,20 +73,21 @@ Layers stack bottom-to-top: `#infographic-layer` → `#earth-shadow` → `#earth
   - **`lastAngle` is seeded from `maToAngle(initialMa)`** (the handle's true centre angle) — not the pointer's click position. The click offset is absorbed into the first pointermove delta, keeping handle position and displayed time locked to a single source of truth. Seeding from the pointer angle instead caused up to ~17 min of error per grab (click edge of 24px handle on 156px orbit ≈ 8.7° offset ≈ 17 min), compounding across re-grabs.
   - On re-grab (while `scrub.active`): `displayStartSecs` is set to the current displayed time (not real local time) so no jump occurs.
 - **Minute hand + central dot**:
-  - Hidden (0.3s ease) when scrubbing starts **only if earth layer is visible**.
+  - Hidden (0.3s ease) when scrubbing starts.
   - Stay hidden until "Return to now" is clicked (not restored on drag release).
-  - If earth layer is toggled during scrub: hand/dot appear when earth hidden, disappear when earth shown.
-  - When earth is hidden and scrubbing: minute hand tracks the scrubber position (whole-minute snapping, no motion blur). Angle = `maToAngle(scrub.ma) + 90`.
+  - When scrubbing: minute hand tracks the scrubber position (whole-minute snapping, no motion blur). Angle = `maToAngle(scrub.ma) + 90`.
 
 ---
 
 ## Technical Implementation
 
 ### Stack
-- Vanilla JS + HTML + CSS — single self-contained file (`eona.html`)
-- Three.js r128 (CDN) for WebGL Earth
-- Google Fonts CDN (Space Mono)
-- No build step
+- Vanilla JS + HTML + CSS — single source file (`eona.html`) with `<!-- @if WEB/PI -->` build directives
+- Three.js r128 (CDN on web; local `lib/three.r128.min.js` on Pi)
+- Google Fonts CDN (Space Grotesk + Space Mono) on web; local woff2 files on Pi
+- `build.sh` preprocesses `eona.html` into:
+  - `dist/web/index.html` + `dist/web/images/` — served by Vercel and `server.js`
+  - `dist/pi/clock.html` — deployed to the Raspberry Pi
 
 ### Key Functions
 ```js
@@ -135,12 +134,12 @@ STATES    // array of visual waypoints; see STATES Reference below
 ## WebGL Earth
 
 ### Overview
-A Three.js `SphereGeometry` (radius 1, 64×64 segments) with a custom `ShaderMaterial`. The fragment shader is an uber-shader: `renderSurface()` branches on a per-state `surfApproach` uniform (screenprint / watercolor / topographic) and `computeCloudMask()` branches on a per-state `cloudApproach` uniform (warped / ridged_wisps / warped_layers / warped_wisps). Both are called twice per pixel (dual-render A/B) so adjacent states can use different approaches and the cross-fade works naturally. `CLOUDS_ENABLED = true`.
+A Three.js `SphereGeometry` (radius 1, 48×48 segments on web / 32×32 on Pi) with a custom `ShaderMaterial`. The fragment shader uses **screenprint** surface rendering and **warped_wisps** cloud rendering — single branches, no approach switching at runtime. Surface is rendered twice per pixel (dual-render A/B) so adjacent STATES cross-dissolve cleanly while each keeps its own noise seed. `CLOUDS_ENABLED = true`.
 
 ### Camera & Canvas Sizing
 - Camera: `PerspectiveCamera(45°, 1, 0.1, 100)`, positioned at `z = 3.12`
 - Projected sphere diameter = **1.021 × `--earth-size`** (derived: `arcsin(1/3.12)` = 18.70°, fraction of half-FOV = `tan(18.70°)/tan(22.5°)` = 0.817; × 1.25 canvas ratio = 1.021)
-- `--earth-size: calc(var(--clock-size) * 0.45)` — globe is 45% of the clock face diameter
+- `--earth-size: calc(var(--clock-size) * 0.33)` — globe is 33% of the clock face diameter
 - `--earth-canvas-size = --earth-size × 1.25` — the container is 25% larger than the visual sphere diameter, giving ~12% clear buffer on every side for the atmospheric glow to bleed into without clipping
 - Canvas: `width/height: 100%` of the container; no `overflow: hidden` on the container (needed for glow)
 
@@ -170,7 +169,7 @@ Calibrated threshold values for common land ratios (t1=0.50 for equal c2/c3 spli
 - 44/56 land: `t2=0.56, t1=0.46` (default for SDF phases)
 - 60/40 land: `t2=0.40, t1=0.25` (Hadean — old screenprint values)
 
-⚠️ These thresholds assume **fbm noise** (screenprint / watercolor approaches). The **topographic approach** uses `ridgedFbm`, which has a different output distribution (skewed toward 1.0). Hadean phases now use topographic with `t1=0.80, t2=0.79` — these high values are correct for ridged noise but would make land invisible on screenprint. When changing a phase's surfaceApproach, re-tune thresholds in the colour lab.
+⚠️ These thresholds assume **fbm noise** (screenprint). The **topographic approach** (colour lab only) uses `ridgedFbm`, which has a different output distribution (skewed toward 1.0) — it needs `t1=0.80, t2=0.79` or similar high values that would make land invisible on screenprint. If you experiment with topographic in the colour lab, re-tune thresholds before comparing — they are not interchangeable.
 
 ⚠️ Do not use `t2 > 0.70` for **screenprint/watercolor** phases — land becomes invisible as the fbm distribution thins out above ~0.75.
 
@@ -194,18 +193,15 @@ Clouds are rendered in a separate pass from the surface using `computeCloudMask(
 **Hadean phases** keep `cloudDensity: 0.00` — no atmosphere renders there regardless of `CLOUDS_ENABLED`.
 
 ### Surface Approach System
-Surface rendering is selected per-state via `surfaceApproach` field. The uber-shader branches on a float uniform (`aSurfApproach` / `bSurfApproach`):
+The production shader uses **screenprint** only — hard-edged fbm ink zones, narrow smoothstep (0.04). The Icinori riso aesthetic. All phases use this approach; `surfaceApproach` field on STATES entries is retained for the colour lab but ignored by the production shader.
 
-- **screenprint** (0.0) — two fbm layers, narrow smoothstep (0.04). Hard-edged registered ink zones. The Icinori riso aesthetic. Default for most phases. All SDF-era phases must use screenprint (the data-driven land/sea path only applies screenprint noise for modulation).
-- **watercolor** (1.0) — domain-warped fbm, wide smoothstep (0.18). Colour zones bleed into each other. Soft, organic. Used for: Steam World.
-- **topographic** (2.0) — ridged multifractal with contour-line character. Bright creases where noise folds. Requires `ridgedFbm()`. Used for: Molten Hadean (early + late).
+All SDF-era phases must use screenprint (the data-driven land/sea path only applies screenprint noise for modulation).
 
-**Approach encoding in JS:**
-```js
-const SURF_APPROACH_ID  = { screenprint: 0.0, watercolor: 1.0, topographic: 2.0 };
-const CLOUD_APPROACH_ID = { warped: 0.0, ridged_wisps: 1.0, warped_layers: 2.0, warped_wisps: 3.0 };
-```
-`setState()` encodes the string → float via these maps each frame.
+Other approaches exist in `colour-lab.html` as lab-only options:
+- **watercolor** — domain-warped fbm, wide smoothstep (0.18). Soft, organic.
+- **topographic** — ridged multifractal with contour-line character. Requires `ridgedFbm()`.
+
+⚠️ Topographic thresholds are calibrated for ridgedFbm output distribution. If you change any phase's `surfaceApproach` field in the colour lab, re-tune `noiseThresh1`/`noiseThresh2` — fbm and ridgedFbm have different distributions and shared thresholds will make land invisible or solid.
 
 ### Atmospheric Glow
 Applied as a CSS `filter: drop-shadow()` on `#earth-layer` each frame via `updateEarth()`. Two stacked shadows (tight core + soft halo) are used for a hot-core feel. Strength and colour are interpolated between STATES A and B alongside the surface blend. Set `glowStrength: 0` on states with no glow.
@@ -213,7 +209,7 @@ Applied as a CSS `filter: drop-shadow()` on `#earth-layer` each frame via `updat
 **Phases with glow currently:** Molten Hadean early (0.80), late (0.55), Steam World (0.20 — residual cherry red fading to 0). All other phases: 0.0.
 
 ### Atmospheric Haze Layer
-A CSS `#haze-layer` div sits above the WebGL canvas. Each frame `updateEarth()` sets its background to a radial gradient and its opacity to the interpolated per-state value. Visibility is tied to `#earth-layer` — hidden when earth layer is toggled off.
+A CSS `#haze-layer` div sits above the WebGL canvas. Each frame `updateEarth()` sets its background to a radial gradient and its opacity to the interpolated per-state value. Visibility is tied to `#earth-layer`.
 
 **Noise overlay:** `#haze-layer::after` pseudo-element with a data-URI SVG `feTurbulence` filter (type `fractalNoise`, baseFrequency `0.65`, 200×200px tile) at `mix-blend-mode: multiply`, 15% opacity. Inset 25% so noise stays inside the sphere boundary.
 
@@ -257,7 +253,7 @@ A CSS `#earth-shadow` div sits between `#infographic-layer` and `#earth-layer`. 
 
 **Noise overlay:** `#earth-shadow::after` with a data-URI SVG `feTurbulence` filter (type `turbulence`, baseFrequency `0.5`, 200×200px tile), 15% opacity.
 
-Visibility is tied to `#earth-layer` — hidden when earth layer is toggled off.
+Visibility is tied to `#earth-layer`.
 
 ### SDF Paleogeographic Atlas
 A base64-encoded PNG (512 × 2816 px) embedded in the HTML. 11 signed-distance fields stacked vertically, one per timestamp:
@@ -317,8 +313,8 @@ Each entry in the `STATES` array is a visual waypoint. The Earth interpolates co
 | `seed` | float | Noise offset — gives each state distinct feature placement |
 | `useLandSea` | float 0–1 | 0 = pure procedural, 1 = SDF atlas continents |
 | `coastSoftness` | float | Smoothstep width around coastline (0.01 = crisp) |
-| `surfaceApproach` | string | `'screenprint'` / `'watercolor'` / `'topographic'` — selects noise shaping |
-| `cloudApproach` | string | `'warped'` / `'ridged_wisps'` / `'warped_layers'` / `'warped_wisps'` |
+| `surfaceApproach` | string | Data only — production shader uses `'screenprint'` on all phases; colour lab reads this field |
+| `cloudApproach` | string | Data only — production shader uses `'warped_wisps'` on all phases; colour lab reads this field |
 
 Current STATES sequence (14 entries):
 
@@ -326,9 +322,9 @@ All blends use **smoothstep easing** (slow → fast → slow). Transition style 
 
 | # | Name | Span (Ma) | Surface | Clouds | Transition in | Transition out |
 |---|------|-----------|---------|--------|---------------|----------------|
-| 0 | Molten Hadean (early) | 4540–4420 | topographic | warped_layers | — | Full-span drift. Glow 0.80. |
-| 1 | Molten Hadean (late) | 4420–4300 | topographic | warped_layers | Full-span | 30 Ma ramp into Steam World. Glow 0.55. |
-| 2 | Steam World | 4300–4000 | watercolor | warped_layers | 30 Ma ramp | 60 Ma ramp. Glow 0.20 fading to 0. |
+| 0 | Molten Hadean (early) | 4540–4420 | screenprint | warped_layers | — | Full-span drift. Glow 0.80. |
+| 1 | Molten Hadean (late) | 4420–4300 | screenprint | warped_layers | Full-span | 30 Ma ramp into Steam World. Glow 0.55. |
+| 2 | Steam World | 4300–4000 | screenprint | warped_layers | 30 Ma ramp | 60 Ma ramp. Glow 0.20 fading to 0. |
 | 3 | Hazy Archean (early) | 4000–3200 | screenprint | warped_layers | 60 Ma from Steam | Full-span drift. |
 | 4 | Hazy Archean (late) | 3200–2500 | screenprint | warped | Full-span | 30 Ma snap into GOE. |
 | 5 | Great Oxidation (early) | 2500–2400 | screenprint | warped_layers | 30 Ma snap | Full-span drift. |
@@ -348,7 +344,7 @@ For palette details and colour rationale for each phase, see **`colour-reference
 
 ## SVG Layers
 
-### `#infographic-layer` (toggleable — Eons)
+### `#infographic-layer` (Eons)
 - **`#eon-ring`**: Six pie slices (SVG path `M cx cy L p1 A r r 0 largeArc 1 p2 Z`), clipped to `#eon-reveal-clip`. Colours `#BBBBBB` at varying opacity:
 - **`#hour-markers`**: 24-tick ring at the outer rim (r=188–195). Populated by `drawHourMarkers()` which is defined but not currently called from `init()`.
   - Hadean (4540–4000 Ma): 16%
@@ -360,14 +356,14 @@ For palette details and colour rationale for each phase, see **`colour-reference
   - Noise overlay: SVG `<filter>` with `feTurbulence` (baseFrequency 1.0) → `feColorMatrix` (alpha) → `feFlood` black → `feComposite`, 25% opacity
 - **Progressive reveal**: `<clipPath id="eon-reveal-clip">` contains a dynamically updated `<path id="eon-reveal-path">` — a conic sector from 12 o'clock to the current hour hand position. Updated every frame by `updateEonReveal(ma)`.
 
-### `#clock-layer` (toggleable — Clock, z-index: 1)
+### `#clock-layer` (Clock, z-index: 1)
 - **`#clock-hour-markers`**: 60 minute ticks, `#666666`, 1px stroke. Inner edge r=180, outer edge r=200.
 - **`#clock-hands`**: Minute hand only (`#minute-hand`) — white line, stroke-width 2. Central dot r=8 (16px diameter).
 
 ### `#persistent-layer` (non-toggleable — always visible)
 - **`#clock-eon-markers`**: 12 hour ticks, `#666666`, 1px stroke. Inner edge r=160, outer edge r=180. Always visible on all layers.
 - **`#position-indicator`**: Scrubber handle — persistent SVG circle, r=24, orbit r=156. Solid orange (`#E34E2A`) at rest; outline state (transparent fill + 1px white stroke) during scrub. CSS transition `fill 0.5s ease, stroke 0.5s ease`.
-- **`#event-markers`**: Event dots, r=2, orbit r=156. White normally; black when active (hidden behind overlay). Shown/hidden with eon layer toggle via `display` style. Contains `#event-marker-overlay` — a single extra dot always appended last so it paints on top of all others; positioned over the active dot each frame and coloured orange (handle outlined) or black (handle solid). Ensures the active dot is never obscured by a neighbouring dot.
+- **`#event-markers`**: Event dots, r=2, orbit r=156. White normally; black when active (hidden behind overlay). Dots with `data-event-future` are swapped in/out via `_doMarkerSwap()` when the clock crosses the present/future boundary. Contains `#event-marker-overlay` — a single extra dot always appended last so it paints on top of all others; positioned over the active dot each frame and coloured orange (handle outlined) or black (handle solid). Ensures the active dot is never obscured by a neighbouring dot.
 - **`#event-hit-areas`**: Transparent hit circles r=12, `pointer-events="all"`. Disabled (`pointer-events="none"`) when eon layer is hidden.
 
 ---
@@ -378,39 +374,29 @@ For palette details and colour rationale for each phase, see **`colour-reference
 - **Active zone**: scrubber centre within ±4px of a dot AND within 300 Ma of the event's geological time → that dot activates. The Ma-proximity check prevents the "Earth forms" dot (at 12 o'clock = 4540 Ma) from triggering near end-of-cycle (0 Ma), which maps to the same clock position. Only one active at a time (closest wins).
 - **Overlap zone**: scrubber centre within 24px of any dot → handle enters outline state (latched for duration of scrub).
 - **Hover**: hovering a hit area turns the dot orange. Floating tooltip is disabled (`showTooltip` returns immediately).
-- **Event active in center column**: when an event activates, `#event-name-suffix` appends ` • Event Name` to the timestamp, `#event-desc-center` shows the description above the timestamp row, and `_activeEventMa` is set to the event's time.
-  - **Timestamp locking**: `updateDeepTimeDisplay` locks `#years-display` to the event time while `ma >= _activeEventMa` (scrubber approaching or at event). Once `ma < _activeEventMa` (scrubber passes the event toward present), years-display resumes live time — even if the event name/desc are still showing.
-  - **Event description**: Fraunces Regular 16px `#ffffff`, line-height 1.3, 300px fixed width, `display: none` → `display: block` via `.visible` class. Positioned above `.center-timestamp` in the flex column (grows upward, timestamp stays pinned to baseline).
-- **Tooltip** (floating, follows cursor): currently disabled — `showTooltip` returns immediately. Markup and styles remain in case it's re-enabled. `#222222` background, Space Mono Regular 10px uppercase 1px letter-spacing, max-width 250px.
+- **Event active in arc text**: when an event activates, `showEventDescription(event)` replaces `#era-display` (bottom arc) with the event name (bold, accent colour) + description inline. `_activeEventMa` is set to the event's time.
+  - **Timestamp locking**: `updateDeepTimeDisplay` locks `#years-display` to the event time while `ma >= _activeEventMa` (scrubber approaching or at event). Once `ma < _activeEventMa` (scrubber passes the event toward present), years-display resumes live time — even if the era arc is still showing the event.
+  - `hideEventDescription()` restores `#era-display` to the normal eon/era label from `getEonLabel(ma)`.
 
 ---
 
-## UI — Info Panel
+## UI — Clock Face
 
-Fixed bottom bar, `padding: 24px 32px 32px`, flex row space-between, `align-items: flex-end`. `pointer-events: none` on the panel itself; interactive children have `pointer-events: auto`.
+There is no bottom info bar. All UI lives inside the clock circle: arc text around the inner rim, a margin strip above, and a ghost handle for scrub position.
 
-**Top-left header** (`.header`, flex row, `align-items: flex-end`):
-- `.title`: `<img src="images/logo.svg" width="70">` — SVG logo replaces text.
-- `.layers-control` (header-center): layers button + expandable tree. "Layers" label is white (`#ffffff`); hidden (`display: none`) when tree is expanded (`.layers-btn.active`). `layers-default.svg` = white strokes, `layers-hover.svg` = white strokes, `layers-active.svg` = white strokes.
-- **Layer tree**: `connector-section` height 16px; horizontal connector line at `top: 8px`; `vline-outer` 8px; `vline-middle` 16px.
+**Arc ring text** — three `<textPath>` elements in `#persistent-layer`, each following a circular arc inside the clock ring:
+- `#years-display` (left arc, `#arc-ring-left`): geological age in Ma — Space Mono, `fill: #ffffff`, 8px.
+- `#era-display` (bottom arc, `#arc-ring-bottom`): current eon/era name — Space Grotesk weight 300, `fill: #999999`, 8px.
+- `#time-display` (right arc, `#arc-ring-right`): local time — Space Mono, `fill: #999999`, 8px.
+
+**Margin top** — `#margin-top` div above the clock circle, holds the logo:
+- `#logo-clock`: `<img src="images/logo-clock.svg">`. Width: `calc(var(--clock-size) * 84 / 1080)` — proportional to clock size.
 
 **Images directory:**
-- `images/logo.svg` — wordmark/logo used in `.title`
+- `images/logo-clock.svg` — clock-specific wordmark/logo
 - `images/favicon.png` — browser tab icon (`<link rel="icon">` in `<head>`)
 
-**Left column** (`.info-left`, `flex: 1`):
-- `.era` (`#era-display`): current eon/era name. Space Mono Regular 10px uppercase 1px letter-spacing `#999999`.
-
-**Centre column** (`.info-center`, flex-column, `align-items: center`, `justify-content: flex-end`, `gap: 16px`, `flex: 1`):
-- `.info-event-name` → `#event-name-suffix`: event name label. Space Mono Regular 10px uppercase 1px letter-spacing `#E34E2A`. Empty when no event active. Sits 16px above event description via column gap.
-- `#event-desc-center` (`.center-event-desc`): event description. `display: none` → `display: block` via `.visible`. Fraunces Regular 16px `#ffffff`, line-height 1.3, `text-align: center`, fixed `width: 300px`.
-- `.center-timestamp` (in `.info-bottom` centre): `#years-display` (Space Mono Regular 10px uppercase 1px letter-spacing `#E34E2A`).
-
-**Right column** (`.info-right`, flex-row, `align-items: flex-end`, `justify-content: flex-end`, `gap: 16px`, `flex: 1`):
-- `#time-display`: local time. Space Mono Regular 10px uppercase 1px letter-spacing `#999999`. Hidden when `body.scrubbing`.
-- `#return-to-now` (`.return-to-now`): pill button, orange fill `#E34E2A`. Space Mono Regular 10px uppercase 1px letter-spacing black. `display: none` by default; `display: block` when `body.scrubbing`.
-
-All Space Mono text: `line-height: 1`, `text-box: trim-both cap alphabetic`.
+**Ghost handle** (`#ghost-indicator` / `#ghost-handle`) — appears while scrubbing. An outline circle (r=16.5, `stroke: #E34E2A`, transparent fill) positioned at the real local-time angle. Fades in after a brief delay so it doesn't flash on short scrubs. `display: none` by default; `display: block` when `body.scrubbing`. Opacity managed by JS (not CSS class) so it can fade smoothly in and out independently of the `body.scrubbing` class.
 
 ---
 
@@ -426,38 +412,11 @@ See **`colour-reference.md`** for:
 
 ## Render Labs
 
-Standalone HTML dashboards for comparing shader approaches side-by-side. Each renders multiple WebGL globes with shared controls (palette, speed, thresholds) so treatments can be evaluated under identical conditions. Same design language as the main app: black background, Space Mono, `#E34E2A` accents.
+### Design Decisions (from prior render lab work)
 
-### `cloud-compare.html` — Cloud Render Lab
+**Cloud approaches evaluated:** warped, ridged_wisps, warped_layers, warped_wisps. Warped Wisps selected as the primary production approach — brushstroke feel without stiffness. Per-state approach variation adopted for realism range: warped_layers for heavy early atmospheres (pre-GOE), warped for transitional/snowball phases, warped_wisps for post-snowball through Modern.
 
-Four cloud rendering approaches on a 4-column grid. Each globe shares a `surfaceColor()` function and differs only in `cloudMask()`.
-
-**Approaches:**
-- **Warped** — current shader baseline. Domain-warped fbm, 0.04 smoothstep. Good band↔swirl range via `cloudShp`. Can clump at mid densities.
-- **Ridged Wisps** — ridged multifractal, cirrus-like wisps from dependent octaves. Standalone ridged turbulence.
-- **Warped Layers** — three transparent fbm layers at different scales/speeds. Translucent→solid depth. Camo breakup at mid-range.
-- **Warped Wisps** — warped fbm body + ridged detail + edge erosion. Keeps Warped's shape range, breaks up clumpy silhouettes. Primary replacement candidate.
-
-**Controls:** Cloud Density (0–0.80), Cloud Shape (band↔swirl, 0–1), Rotation Speed, Palette (modern/hadean/archean/hothouse/snowball), Presets (Steam, Archean, Modern, Hothouse, Cryo).
-
-**Outcome:** Warped Wisps selected as the production cloud approach — brushstroke feel without stiffness. However, per-state approach selection was adopted instead of a single global approach: warped_layers for heavy early atmospheres, warped for transitional/snowball phases, warped_wisps for post-snowball.
-
-### `surface-compare.html` — Surface Render Lab
-
-Five surface rendering approaches split across two grids: procedural (3-column) and data-driven (2-column). Each globe shares the same PREAMBLE (noise functions, rotY, fakeSdf) and differs in `surfaceColor()`.
-
-**Procedural approaches** (pre-SDF eras — pure noise, no continent data):
-- **Screenprint** — current shader. Two fbm layers, narrow smoothstep (0.04). Hard-edged registered ink zones. The Icinori riso aesthetic.
-- **Watercolor** — wide smoothstep (0.18), domain-warped fbm. Colour zones bleed into each other. Soft, organic, imprecise. Suited to dreamy early eras.
-- **Topographic** — ridged multifractal with contour-line character. Bright creases where noise folds. High-frequency detail, busy and layered.
-
-**Data-driven approaches** (post-snowball — SDF continents):
-- **Clean Data** — current SDF approach. Near-flat land/sea, ±7% noise modulation, crisp coastline. Maximum continent readability.
-- **Riso Print** — heavy grain, dithered coastline edge, visible dot texture on both land and sea. Printmaking aesthetic pushed to the maximum. Screenprint texture is the star, continents are secondary.
-
-**Controls:** Thresh 1 (c3/c2 boundary), Thresh 2 (c2/c1 boundary), Surface Intensity, Speed, Palette (modern/hadean/archean/hothouse/snowball/boring billion), Presets (Hadean 60/40, Archean 20/80, Boring Bn, Modern 44/56, Hothouse, Snowball). Coast softness is hardcoded at 0.03.
-
-**Key finding:** Data-driven approaches have limited stylistic flex — the SDF continents must read clearly, so heavy texture fights legibility. The procedural eras have much more room to push things. Riso Print is the maximum viable texture for continent-era states.
+**Surface approaches evaluated:** screenprint, watercolor, topographic. Screenprint selected for all phases — the Icinori riso aesthetic holds across geological eras. SDF continent phases require screenprint specifically: watercolor bleed and topographic ridges fight coastline readability. The procedural (pre-SDF) eras can push harder stylistically but screenprint is consistent enough to keep.
 
 ### `colour-lab.html` — Colour Lab
 
@@ -466,11 +425,11 @@ Unified per-phase editor for palette, shader approach, haze, and render paramete
 **Layout:**
 - **Top strip** — all 14 phases as stacked c3→c0 colour bands; click to jump.
 - **Left panel** — scrollable phase list with 4 swatches per phase. Click any swatch to edit. Active phase highlighted with `#E34E2A` index number.
-- **Centre: globe** — 240px WebGL globe rendered via a fullscreen-quad fragment shader (no geometry). Identical PREAMBLE (noise functions, `rotY`) shared with cloud-compare and surface-compare. Light haze and dark haze are CSS div overlays on top, using the production `radial-gradient(circle closest-side ...)` approach. Rotation is west-to-east (negative angle in `rotY` convention). Clouds rotate independently at a separate speed.
+- **Centre: globe** — 240px WebGL globe rendered via a fullscreen-quad fragment shader (no geometry). Light haze and dark haze are CSS div overlays on top, using the production `radial-gradient(circle closest-side ...)` approach. Rotation is west-to-east (negative angle in `rotY` convention). Clouds rotate independently at a separate speed.
 - **Centre: colour wheel** — HSL gradient wheel (radius = saturation, angle = hue) rendered to a 400×400 canvas, displayed at 200px. Lightness slider below. Crosshair tracks current position. Direct hex input with swatch preview.
 - **Centre: haze pickers** — Light Haze and Dark Haze colour circles below the c0–c3 slots. Click to switch the colour wheel target to `hazeColor` or `darkHazeColor`. Opacity sliders for each, writing to `hazeOpacity` and `darkHazeOpacity` on the active phase.
-- **Right panel: surface controls** — Approach tabs (Screenprint, Watercolour, Topographic), Thresh 1, Thresh 2, Intensity, Speed sliders. SDF phases (`useLandSea > 0`) grey out Watercolour and Topographic — only Screenprint available, since the procedural alternatives don't apply to continent data.
-- **Right panel: cloud controls** — Approach tabs (Warped, Ridged Wisps, Warped Layers, Warped Wisps), Density, Shape, Speed sliders. All four approaches available on every phase.
+- **Right panel: surface controls** — Approach tabs (Screenprint, Watercolour (lab), Topographic (lab)), Thresh 1, Thresh 2, Intensity, Speed sliders. SDF phases (`useLandSea > 0`) grey out lab approaches. Lab tabs are for visual comparison only — production shader uses screenprint on all phases.
+- **Right panel: cloud controls** — Approach tabs (Warped (lab), Ridged Wisps (lab), Warped Layers (lab), Warped Wisps), Density, Shape, Speed sliders. Warped Wisps is the production approach; the others are lab-only tabs for comparison.
 - **Bottom global bar** — Toggles for Clouds, Light Haze, Dark Haze (apply across all phases). Grain slider (global). Undo button (per-phase stack). Reset Phase button (reverts active phase to original prod values). Copy Palette JS export button.
 
 **Shader architecture:** The globe compiles a fragment shader by concatenating `PREAMBLE + SURF_FN[key] + CLOUD_FN[key] + MAIN_FN`. Switching surface or cloud approach triggers a recompile. Switching phases also forces recompile (clears `currentSurfKey`/`currentCloudKey`). Uniform locations are cached per-program.
@@ -480,14 +439,14 @@ Unified per-phase editor for palette, shader approach, haze, and render paramete
 - `hazeColor`, `hazeOpacity`, `darkHazeColor`, `darkHazeOpacity`
 - `noiseThresh1`, `noiseThresh2`, `surfaceIntensity`
 - `cloudDensity`, `cloudShape`
-- `surfaceApproach` (one of `screenprint`, `watercolor`, `topographic`)
-- `cloudApproach` (one of `warped`, `ridged_wisps`, `warped_layers`, `warped_wisps`)
+- `surfaceApproach` — stored per-phase for the colour lab; production shader always uses `screenprint`
+- `cloudApproach` — stored per-phase; production shader always uses `warped_wisps`
 
 **Undo system:** One undo snapshot pushed per drag gesture (not per frame), using a `_undoPushedThisDrag` flag. `pointerdown` on any interactive control pushes a deep-copy of the full phase state; subsequent `input` events during the same drag do not push. `pointerup` resets the flag. 50-deep stack per phase. Cmd/Ctrl+Z keyboard shortcut. Reset Phase pushes an undo before reverting.
 
 **Keyboard navigation:** Arrow keys or vim `hjkl`. Up/down = phase. Left/right cycles through targets: `c0 → c1 → c2 → c3 → hazeColor → darkHazeColor`.
 
-**Export:** "Copy Palette JS" button writes all 14 phases' palette, haze, threshold, cloud, and approach values to the clipboard as JS-ready snippets. The exported values are stored in `palette-js.md` and have been applied to production `eona.html` via `implement_palette.py`.
+**Export:** "Copy Palette JS" button writes all 14 phases' palette, haze, threshold, cloud, and approach values to the clipboard as JS-ready snippets. Paste directly into the `STATES` array in `eona.html`.
 
 ---
 
@@ -523,19 +482,19 @@ Single wall cable: only the Pi's USB-C power supply runs to the wall. Display is
 
 **OS:** Raspberry Pi OS (Debian Trixie), Wayland display server. Hostname: `eona` (`eona.local`). User: `pi`.
 
-**Repo:** `https://github.com/owen-thomas/eona-earth.git`, cloned to `~/eona`. `clock.html` served directly from `~/eona/clock.html`.
+**Repo:** `https://github.com/owen-thomas/eona-earth.git`, cloned to `~/eona`. Served from `~/eona/dist/pi/clock.html` (built from `eona.html` by `build.sh`).
 
 **Offline assets** — bundled locally, no internet required:
 - `lib/three.r128.min.js`
-- `fonts/space-mono-400.woff2`, `fonts/space-mono-700.woff2`, `fonts/fraunces-400.woff2`
-- Logo inlined as base64 data URI in `clock.html`
+- `fonts/space-grotesk-300.woff2`, `fonts/space-mono-400.woff2`, `fonts/space-mono-700.woff2`
+- Logo SVG referenced as `images/logo-clock.svg`
 
 **Autostart** (`~/.config/autostart/clock.desktop`):
 ```ini
 [Desktop Entry]
 Type=Application
 Name=Clock
-Exec=chromium --kiosk --noerrdialogs --disable-infobars --no-first-run --password-store=basic file:///home/pi/eona/clock.html
+Exec=chromium --kiosk --noerrdialogs --disable-infobars --no-first-run --password-store=basic file:///home/pi/eona/dist/pi/clock.html
 ```
 
 Key flags: `--password-store=basic` suppresses keyring prompt; `--kiosk` is full-screen. `--disable-gpu` and `--enable-unsafe-swiftshader` are **not needed** on Pi 5 — VideoCore VII handles WebGL with hardware rendering.
@@ -543,25 +502,25 @@ Key flags: `--password-store=basic` suppresses keyring prompt; `--kiosk` is full
 **Update workflow:**
 ```bash
 ssh pi@eona.local
-cd ~/eona && git pull && sudo reboot
+cd ~/eona && git pull && ./build.sh pi && sudo reboot
 ```
 
 Pi runs Wayland — `DISPLAY=:0` does not work from SSH. Reboot is the standard way to reload Chromium after a pull.
 
-### `clock.html` — Pi-Specific Shader
+### Pi Build — `@if PI` Differences
 
-`clock.html` is the Pi-targeted build. Key differences from `eona.html`:
+`dist/pi/clock.html` is produced by `./build.sh pi`. The `<!-- @if PI -->` blocks swap in these differences from the web build:
 
-| Feature | `eona.html` | `clock.html` |
-|---------|-------------|--------------|
-| `fbm()` | 4 octaves | 2 octaves — cloud warp vectors only |
-| `fbmSurf()` | (same as fbm) | 4 octaves — surface rendering |
-| `ridgedFbm2()` | n/a | 5 octaves — matches eona.html `ridgedFbm` quality |
-| Cloud function | Full 4-branch uber-shader | Single warped_wisps branch |
-| `renderSurface()` | Screenprint / watercolor / topographic | Screenprint only — `surfaceApproach` field ignored |
-| State blending | Dual-render cross-fade | CPU-interpolated lerp; seed/useLandSea/cloudApproach snap at t=0.5 |
-| `cloudShape` | Per-state values | Pre-Cryogenian states bumped (0.00 → 0.15–0.75) |
-| `CLOUDS_ENABLED` | `true` | Conditional: function absent from GLSL when `false` |
+| Feature | Web build | Pi build |
+|---------|-----------|----------|
+| Three.js | CDN | `lib/three.r128.min.js` (local) |
+| Fonts | Google Fonts CDN | `@font-face` from local woff2 files |
+| `--clock-size` | `min(calc(100vw - 48px), calc(100vh - 48px))` | `1080px` fixed |
+| `html, body` | responsive, flexbox centred | `1080px × 1080px`, `overflow: hidden` |
+| `.clock-container` | `position: relative; width: var(--clock-size)` | `position: absolute; inset: 0; width: 1080px` |
+| Renderer | `antialias: true`, native DPR, `setSize(size, size)` | `antialias: false`, DPR=1, `setSize(size × 0.5, size × 0.5)` + CSS scale ×2 |
+| Sphere geometry | `SphereGeometry(1, 48, 48)` | `SphereGeometry(1, 32, 32)` |
+| `CLOUDS_ENABLED` | `true` | Conditional: cloud function absent from GLSL when `false` |
 
 **V3D instruction budget** — Pi 5's limit sits between ~20 and ~24 noise3d-equivalent calls:
 
@@ -603,8 +562,6 @@ Pi runs Wayland — `DISPLAY=:0` does not work from SSH. Reboot is the standard 
 10. **12-hour geological cycle** — `timeToMa` uses `(hours % 12) / 12`. Both 3am and 3pm map to the same geological time. The dark haze and scrubber position both track the 12-hour cycle.
 11. **Scrub time uses cumulative angle, not `scrub.ma`** — `scrub.ma` is clamped to 0–4540 and can't track multiple revolutions. Time display during scrub must use `scrub.cumulativeAngleDelta` (raw accumulated angle) + `scrub.displayStartSecs` (time at drag start). Never derive displayed time from `scrub.ma` alone — it will lock the display to a single 12-hour window.
 12. **"Earth forms" dot at 12 o'clock ambiguity** — Both 0 Ma (present) and 4540 Ma (Earth forms) map to the 12 o'clock position on the ring. Without a Ma-proximity check, the Earth forms event triggers near end-of-cycle (~65 Ma / 23:49 local time) because the scrubber visually overlaps the dot. Fixed by requiring `|EVENTS[i].time - currentMa| < 300` alongside the pixel-distance check in `updateEventMarkerStates`. The 300 Ma threshold is safely between the ~65 Ma end-of-cycle position and the 4540 Ma start-of-cycle.
-13. **Approach transitions in dual-render** — When state A and state B use different `surfaceApproach` or `cloudApproach` values, the uber-shader executes both branches per pixel during the blend. This is correct (each state renders with its own approach, then they cross-dissolve), but means approach-boundary transitions (e.g. topographic→watercolor at Hadean→Steam World) are heavier on the GPU than same-approach blends. Not a problem at current complexity but worth knowing if adding more expensive approaches.
-14. **Topographic thresholds are coupled to ridgedFbm** — If a topographic state's `surfaceApproach` is changed to screenprint without re-tuning thresholds, the high `noiseThresh1`/`noiseThresh2` values (0.75–0.80) will make the surface nearly invisible because fbm output rarely reaches that high. Always re-tune thresholds in the colour lab when changing approach.
 
 ---
 
