@@ -645,10 +645,10 @@
     function getEonLabel(ma) {
       if (ma < 0) {
         const e = FUTURE_EONS.find(p => ma <= p.start && ma > p.end);
-        return e ? `${e.name} Eon – ‘${e.subtitle}’` : 'Future Earth';
+        return e ? `${e.name} Eon ・ ‘${e.subtitle}’` : 'Future Earth';
       }
       const eon = getCurrentEon(ma);
-      return eon ? `${eon.name} Eon – ‘${eon.subtitle}’` : '';
+      return eon ? `${eon.name} Eon ・ ‘${eon.subtitle}’` : '';
     }
     
     function formatMa(ma) {
