@@ -2562,7 +2562,7 @@
         const accent = _currentAccentHex || '#ffffff';
         const desc = event.desc ? event.desc.replace(/<br\s*\/?>/gi, ' ') : '';
         if (desc) {
-          eraEl.innerHTML = `<tspan font-weight="600" fill="${accent}">${event.name} ●</tspan> ${desc}`;
+          eraEl.innerHTML = `<tspan font-weight="600" fill="${accent}">${event.name}  ●</tspan>  ${desc}`;
         } else {
           eraEl.innerHTML = `<tspan font-weight="600" fill="${accent}">${event.name}</tspan>`;
         }
