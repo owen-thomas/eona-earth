@@ -2511,7 +2511,7 @@
         const entry = _eventDotCache[idx];
         const dist = entry ? Math.hypot(entry.x - scrubX, entry.y - scrubY) : Infinity;
         const [_dr, _dg, _db] = _currentAccentRgb;
-        dot.style.fill = rgbToHex(Math.round(_dr * 1.0 + 255 * 0.0), Math.round(_dg * 1.0 + 255 * 0.0), Math.round(_db * 1.0 + 255 * 0.0));
+        dot.style.fill = rgbToHex(Math.round(_dr * 0.7 + 255 * 0.3), Math.round(_dg * 0.7 + 255 * 0.3), Math.round(_db * 0.7 + 255 * 0.3));
       }
       if (closestCacheIdx >= 0 && closestCacheEntry) {
         overlay.setAttribute('cx', closestCacheEntry.x);
