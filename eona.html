@@ -82,6 +82,11 @@
       --scrub-orbit-r: calc(var(--clock-size) * 120 / 400);
       --margin-mid-r: calc(var(--clock-size) * 185 / 400);
     }
+<!-- @if WEB -->
+    @media (max-width: 600px) {
+      :root { --clock-size: min(calc(100vw - 48px), calc(100vh - 48px)); }
+    }
+<!-- @endif -->
     
     * { margin: 0; padding: 0; box-sizing: border-box; }
 <!-- @if WEB -->
