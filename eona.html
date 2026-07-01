@@ -699,8 +699,12 @@
     //  - cloudShape:       0 = banded (horizontal stripes, early Earth),
     //                      1 = swirled (domain-warped storms, Apollo-style)
     //  - polarIce:         0..1 — strength of latitudinal polar-cap whitening
-    //  - seed:             noise offset — different waypoints get different
-    //                      feature placement (keeps transitions lively)
+    //  - seed:             noise offset — data only, read by colour-lab.html
+    //                      for its single-phase preview. The production
+    //                      shader uses one fixed surfaceSeed for all states
+    //                      (see fragment shader) plus continuous time-based
+    //                      drift, matching how clouds stay seed-fixed — so
+    //                      land/sea blob placement never pops at transitions.
     //  - blendStart:       Ma where this waypoint starts blending toward the
     //                      NEXT waypoint. The blend COMPLETES at the next
     //                      waypoint's span[0]. So blend zone is
@@ -1305,12 +1309,12 @@
     const fragmentShader = `
       uniform float time;
 
-      // === DUAL-RENDER UNIFORMS ===
-      // We render each state fully (with its own stable seed and parameters)
-      // and blend the two outputs. This keeps noise patterns stable per state
-      // so rotation reads cleanly during transitions — interpolating a seed
-      // linearly would cause features to morph in sample space, cancelling
-      // the visual rotation. Cost: ~2× fragment work, trivial at this scale.
+      // === UNIFORMS ===
+      // Colour, thresholds, and other appearance params are CPU-lerped
+      // between the current A/B states every frame (see updateEarth) and
+      // written into the "a" side only — stateBlend is held at 0 (single-
+      // pass render), so the "b" side below is currently unused by the
+      // shader but kept declared for uniform-shape compatibility.
       uniform vec3 aC0, aC1, aC2, aC3;
       uniform vec3 bC0, bC1, bC2, bC3;
       uniform vec3 c4;               // silhouette color (shared, interpolated in JS)
@@ -1318,7 +1322,17 @@
       uniform float aSurfIntens, bSurfIntens;
       uniform float aCloudShape, bCloudShape;   // 0 = horizontal bands, 1 = marbled swirl
       uniform float aPolarIce, bPolarIce;       // 0..1 intensity of polar caps
-      uniform float aSeed, bSeed;
+      // Surface noise offset is a single fixed value shared by every state
+      // (like cloudSeed below) — land/sea blob placement never snaps between
+      // states; only colour/threshold/coverage params drift. Continuous
+      // motion instead comes from time-based domain drift inside
+      // renderSurface(), the same mechanism computeCloudMask() uses.
+      uniform float surfaceSeed;
+      // Continuous function of ma (not wall-clock time) — set each frame in
+      // updateEarth. Makes scrubbing immediately reshape the noise surface
+      // in proportion to distance dragged, independent of the wall-clock
+      // drift above.
+      uniform float surfaceDrift;
       uniform float cloudSeed;
       uniform float stateBlend;       // 0 = fully A, 1 = fully B
       uniform float atmosphereBlend;  // leads stateBlend by 20% of the blend window
@@ -1429,19 +1443,41 @@
       vec3 renderSurface(
         vec3 p,
         vec3 c0, vec3 c1, vec3 c2, vec3 c3,
-        float surfIntens, float seed,
+        float surfIntens,
         float sdfSample, float useLandSea, float coastSoft,
         float noiseThresh1,
         float noiseThresh2
       ) {
-        vec3 sOff = vec3(seed * 13.7, seed * 7.3, seed * 19.1);
+        // Fixed seed + continuous drift — same mechanism as the cloud noise
+        // offset (computeCloudMask). Keeps blob placement continuous across
+        // state transitions instead of popping to a new pattern.
+        // n1 and n2 (the c3/c2 and c2/c1 boundary layers) get independent
+        // drift vectors rather than sharing one offset — the two boundaries
+        // slide across each other instead of translating together as one
+        // rigid pattern, which is what reads as "alive" rather than static.
+        // No extra noise3d calls (same fbmSurf calls as before), so this
+        // carries no Pi V3D instruction-budget cost.
+        //
+        // Two independent drivers, summed:
+        //  - time*  : wall-clock drift — keeps the surface subtly alive even
+        //             while parked on one Ma (e.g. live mode between ticks).
+        //  - surfaceDrift: derived from ma itself (see updateEarth), NOT
+        //             wall-clock time — this is what makes scrubbing visibly
+        //             reshape the surface immediately, proportional to how
+        //             far the handle moves, rather than requiring you to
+        //             wait on the wall clock.
+        vec3 baseOff = vec3(surfaceSeed * 13.7, surfaceSeed * 7.3, surfaceSeed * 19.1);
+        vec3 drift1 = vec3(time * 0.010, time * 0.007, time * 0.006)
+                    + vec3(surfaceDrift * 1.0, surfaceDrift * 0.7, surfaceDrift * 0.6);
+        vec3 drift2 = vec3(time * -0.006, time * 0.009, time * -0.008)
+                    + vec3(surfaceDrift * -0.6, surfaceDrift * 0.9, surfaceDrift * -0.8);
 
         float s1 = clamp(noiseThresh1, 0.04, 0.94);
         float s2 = clamp(noiseThresh2, 0.04, 0.97);
 
         // === SCREENPRINT ===
-        float n1 = fbmSurf(p * 2.4 + sOff);
-        float n2 = fbmSurf(p * 4.6 + sOff * 1.3 + vec3(100.0));
+        float n1 = fbmSurf(p * 2.4 + baseOff + drift1);
+        float n2 = fbmSurf(p * 4.6 + baseOff * 1.3 + vec3(100.0) + drift2);
         float shape1 = smoothstep(s1 - 0.04, s1 + 0.04, n1);
         float shape2 = smoothstep(s2 - 0.04, s2 + 0.04, n2);
         float overlap = shape1 * shape2;
@@ -1562,10 +1598,10 @@
         // snaps to the dominant state instead of cross-fading. The B-side path
         // is guarded so SwiftShader skips it entirely when not needed,
         // saving roughly half the per-pixel work.
-        vec3 colA = renderSurface(p, aC0, aC1, aC2, aC3, aSurfIntens, aSeed, sdfSample, aUseLandSea, aCoastSoft, aNoiseThresh1, aNoiseThresh2);
+        vec3 colA = renderSurface(p, aC0, aC1, aC2, aC3, aSurfIntens, sdfSample, aUseLandSea, aCoastSoft, aNoiseThresh1, aNoiseThresh2);
         vec3 col;
         if (stateBlend > 0.001) {
-          vec3 colB = renderSurface(p, bC0, bC1, bC2, bC3, bSurfIntens, bSeed, sdfSample, bUseLandSea, bCoastSoft, bNoiseThresh1, bNoiseThresh2);
+          vec3 colB = renderSurface(p, bC0, bC1, bC2, bC3, bSurfIntens, sdfSample, bUseLandSea, bCoastSoft, bNoiseThresh1, bNoiseThresh2);
           col = mix(colA, colB, stateBlend);
         } else {
           col = colA;
@@ -1739,7 +1775,6 @@
           aSurfIntens: { value: s0.surfaceIntensity },
           aCloudShape: { value: s0.cloudShape },
           aPolarIce:   { value: s0.polarIce },
-          aSeed:       { value: s0.seed },
           aUseLandSea: { value: s0.useLandSea },
           aCoastSoft:  { value: s0.coastSoftness },
 
@@ -1752,7 +1787,6 @@
           bSurfIntens: { value: s0.surfaceIntensity },
           bCloudShape: { value: s0.cloudShape },
           bPolarIce:   { value: s0.polarIce },
-          bSeed:       { value: s0.seed },
           bUseLandSea: { value: s0.useLandSea },
           bCoastSoft:  { value: s0.coastSoftness },
 
@@ -1766,6 +1800,8 @@
           aCloudApproach: { value: 2.0 },
           bCloudApproach: { value: 2.0 },
 
+          surfaceSeed: { value: 5.0 },
+          surfaceDrift: { value: 0 },
           cloudSeed: { value: 42.0 }
         }
       });
@@ -1791,6 +1827,10 @@
     let _smoothCloudDens = null;
     let _smoothCloudShape = null;
     const CLOUD_EASE_RATE = 1.5;
+    // Surface noise-offset units per Ma of scrub distance. 1000 Ma of
+    // scrubbing (roughly one geological state's span) shifts the drift by
+    // ~0.7 — a clearly visible reshape without looking chaotic.
+    const SURFACE_DRIFT_RATE = 1 / 1400;
 
     function updateEarth(ma, deltaTime) {
       if (!earthSphere) return;
@@ -1827,9 +1867,10 @@
       // Pi mode: interpolate colours and atmosphere params on the CPU so
       // transitions crossfade without running a dual-render in the shader
       // (which would double the V3D instruction count and crash).
-      // seed, useLandSea, coastSoftness and cloudApproach snap at t=0.5 —
-      // these drive noise placement and continent shape, which can't be
-      // meaningfully lerped.
+      // cloudApproach still snaps at t=0.5 — it selects a discrete branch,
+      // which can't be meaningfully lerped. useLandSea and coastSoftness are
+      // now lerped continuously (below) since the underlying noise offset no
+      // longer varies per-state, so there's nothing left to pop.
       const snap = t < 0.5 ? A : B;
       function lerp(a, b) { return a + (b - a) * t; }
       for (let c = 0; c < 4; c++) {
@@ -1850,9 +1891,14 @@
       u.aPolarIce.value      = lerp(A.polarIce, B.polarIce);
       u.aNoiseThresh1.value  = lerp(A.noiseThresh1 ?? 0.46, B.noiseThresh1 ?? 0.46);
       u.aNoiseThresh2.value  = lerp(A.noiseThresh2 ?? 0.56, B.noiseThresh2 ?? 0.56);
-      u.aSeed.value          = snap.seed;
-      u.aUseLandSea.value    = snap.useLandSea;
-      u.aCoastSoft.value     = snap.coastSoftness;
+      // Surface drift driven by ma (continuous, reversible) rather than
+      // deltaTime — this is what makes scrubbing itself visibly reshape the
+      // noise surface, independent of the wall-clock drift term in the
+      // shader. Wraps once per 12-hour cycle at ma's discontinuity, but that
+      // moment is already hidden by the FADE_MA blackout below.
+      u.surfaceDrift.value = -ma * SURFACE_DRIFT_RATE;
+      u.aUseLandSea.value    = lerp(A.useLandSea, B.useLandSea);
+      u.aCoastSoft.value     = lerp(A.coastSoftness, B.coastSoftness);
       u.aCloudApproach.value = CLOUD_APPROACH_ID[snap.cloudApproach ?? 'warped'] ?? 0.0;
 
       // === ATMOSPHERIC GLOW ===
