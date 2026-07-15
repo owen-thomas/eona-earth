@@ -486,7 +486,7 @@ Single wall cable: only the Pi's USB-C power supply runs to the wall. Display is
 
 **Offline assets** — bundled locally, no internet required:
 - `lib/three.r128.min.js`
-- `fonts/space-grotesk-300.woff2`, `fonts/space-mono-400.woff2`, `fonts/space-mono-700.woff2`
+- `fonts/space-grotesk-variable.woff2`, `fonts/space-mono-400.woff2`, `fonts/space-mono-700.woff2` — note: the Pi `@font-face` block declares only Grotesk + Mono 400; Mono 700 has no face declared (synthetic bold — fix scheduled in BUILD-SYSTEM-PLAN.md C3). `fonts/fraunces-400.woff2` is bundled but unreferenced.
 - Logo SVG referenced as `images/logo-clock.svg`
 
 **Autostart** (`~/.config/autostart/clock.desktop`):
@@ -545,6 +545,7 @@ Pi runs Wayland — `DISPLAY=:0` does not work from SSH. Reboot is the standard 
 - **SSH password lockout** — After reboot, SSH password auth may fail (caps lock / keyboard layout). Fix: plug in USB keyboard, `Ctrl+Alt+F2` for text console, run `passwd pi`.
 - **Chromium package name** — On this Pi OS version, the package and binary are `chromium`, not `chromium-browser`.
 - **V3D GPU crash** — Pi 4 cannot run the shader (VideoCore VI limitation, dead end). On Pi 5, the multi-branch cloud function exceeded V3D's instruction limit. Fix: collapse to single warped_wisps branch and wrap the function in a JS template literal conditional so it is absent from the GLSL string entirely when `CLOUDS_ENABLED = false`.
+- **Clock showed stale time after power-off (fixed 2026-07-15)** — Root cause was not NTP/timesyncd config (both were already active), but that NetworkManager had **no saved WiFi profile at all** — `nmcli connection show` listed only the wired connection, likely lost during the NVMe OS reflash. With no WiFi credentials to reconnect with, the Pi had no path to NTP after any power loss. Fixed by creating the profile explicitly system-wide and autoconnecting: `sudo nmcli connection add type wifi con-name "home-wifi" ifname wlan0 ssid "<ssid>" -- wifi-sec.key-mgmt wpa-psk wifi-sec.psk "<password>" connection.autoconnect yes connection.permissions ""` (empty `permissions` = available before any user login, not scoped to one user). Verified via cold `sudo reboot` with ethernet unplugged: `wlan0` reconnects automatically and `timedatectl` shows `System clock synchronized: yes` within ~10s. RTC battery (A2 in BUILD-SYSTEM-PLAN.md) was considered as a belt-and-suspenders fix but declined 2026-07-15 (no further hardware spend) — the WiFi/NTP fix is the accepted solution. Known residual: if the WiFi itself is down after a power loss, the clock shows stale time until connectivity returns.
 
 ---
 
@@ -582,3 +583,5 @@ Pi runs Wayland — `DISPLAY=:0` does not work from SSH. Reboot is the standard 
 
 ### Project Files
 - `colour-lab.html` — interactive per-phase editor for palette, shader approach, haze, and render parameters.
+- `BUILD-SYSTEM-PLAN.md` — plan for hardening `build.sh` and restructuring platform differences (PLATFORM config, OR-list directives) ahead of the desktop target. Phase A closed 2026-07-15 (A1 done; A2 battery declined).
+- `DESKTOP-APP-PLAN.md` — Electron desktop widget plan; depends on BUILD-SYSTEM-PLAN.md Phases B–D landing first.
