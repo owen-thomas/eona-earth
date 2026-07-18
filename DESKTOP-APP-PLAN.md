@@ -55,6 +55,18 @@ These change the code, so settle them first:
 - Add `desktop` to the `all` branch and the usage string.
 - Note: `dist/desktop/app/` (not `dist/desktop/`) so Electron packaging metadata can
   live beside the built page without being served/copied confusion.
+- `do_check()`'s per-target pair list (`"web:$WEB_OUT:...", "pi:$PI_OUT:..."`)
+  is hand-written, not derived from `PLATFORMS` — POSIX `sh`/dash has no
+  arrays, so there's no cheap generic derivation. Add a third `"desktop:..."`
+  entry by hand here too.
+
+> This whole section (1a/1b) predates Phases B and C of `BUILD-SYSTEM-PLAN.md`
+> and is stale in its specifics — the awk regex and `cp -r` calls it
+> describes no longer exist (replaced by `PLATFORMS`/token validation and
+> `copy_assets()`), and Phase C collapsed most of 1b's six-row table into a
+> shared `PLATFORM` object. Re-derive this section from the current
+> `build.sh` and `eona.html` before starting Phase 1, rather than following
+> these specifics literally.
 
 ### 1b. Add `<!-- @if DESKTOP -->` blocks to `eona.html`
 

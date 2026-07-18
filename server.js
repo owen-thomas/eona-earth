@@ -19,16 +19,22 @@ const MIME = {
 };
 
 const SOURCE = path.join(ROOT, 'eona.html');
+const BUILD_SCRIPT = path.join(ROOT, 'build.sh');
 const WEB_INDEX = path.join(WEB_DIR, 'index.html');
 
 function buildWeb() {
   execSync('./build.sh web', { cwd: ROOT, stdio: 'pipe', encoding: 'utf8' });
 }
 
-// Rebuilds dist/web/index.html iff eona.html has changed since it was last
-// built — the edit → refresh loop, no watcher process.
+// Rebuilds dist/web/index.html iff eona.html or build.sh itself has changed
+// since it was last built — the edit → refresh loop, no watcher process.
+// build.sh matters too: editing the stamp format or directive logic should
+// also trigger a live rebuild, not wait for the next server restart.
 function ensureWebBuilt() {
-  const srcMtime = fs.statSync(SOURCE).mtimeMs;
+  const srcMtime = Math.max(
+    fs.statSync(SOURCE).mtimeMs,
+    fs.statSync(BUILD_SCRIPT).mtimeMs
+  );
   let distMtime = 0;
   try {
     distMtime = fs.statSync(WEB_INDEX).mtimeMs;

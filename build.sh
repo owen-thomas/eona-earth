@@ -34,6 +34,27 @@ if [ ! -f "$SOURCE" ]; then
   exit 1
 fi
 
+# Single process-wide cleanup trap. A shell only honours one handler per
+# signal, so build()'s in-flight .tmp file and do_check()'s temp dir share
+# this one instead of each installing their own (which would silently drop
+# whichever registered first).
+CURRENT_TMPFILE=""
+CHECK_TMPDIR=""
+cleanup() {
+  [ -n "$CURRENT_TMPFILE" ] && rm -f "$CURRENT_TMPFILE"
+  [ -n "$CHECK_TMPDIR" ] && rm -rf "$CHECK_TMPDIR"
+  return 0
+}
+trap cleanup EXIT INT TERM
+
+# normalize_stamp <file>
+# Blanks the volatile part of the __BUILD_INFO__ stamp (sha/dirty/date) so
+# `check` diffs structural changes only — otherwise every build's fresh
+# timestamp makes every check() report a diff, defeating its purpose.
+normalize_stamp() {
+  sed -E 's/build: [a-z]+ ([0-9a-f]+(-dirty)?|unknown) [0-9TZ:-]+/build: STAMP/' "$1"
+}
+
 # copy_assets <src-dir> <dest-dir>
 # rm -rf the destination first so re-runs can't nest a copy inside a
 # previous one (the historical dist/pi/fonts/fonts/ bug).
@@ -60,10 +81,16 @@ build() {
   platform_lc=$(echo "$TARGET" | tr 'A-Z' 'a-z')
   sha=$(git rev-parse --short HEAD 2>/dev/null || echo unknown)
   dirty=""
-  git diff --quiet HEAD -- "$SOURCE" 2>/dev/null || dirty="-dirty"
+  # Only probe for dirty state when we actually got a sha — otherwise (no
+  # git, not a repo) the diff check fails for the same reason the sha did,
+  # and that failure would be misread as "the file is dirty."
+  if [ "$sha" != "unknown" ]; then
+    git diff --quiet HEAD -- "$SOURCE" 2>/dev/null || dirty="-dirty"
+  fi
   date_iso=$(date -u +%Y-%m-%dT%H:%M:%SZ)
   buildinfo="$platform_lc $sha$dirty $date_iso"
 
+  CURRENT_TMPFILE="$TMPFILE"
   mkdir -p "$(dirname "$OUTFILE")"
 
   awk -v target="$TARGET" -v platforms="$PLATFORMS" -v buildinfo="$buildinfo" '
@@ -152,6 +179,7 @@ build() {
   fi
 
   mv "$TMPFILE" "$OUTFILE"
+  CURRENT_TMPFILE=""
   echo "built $OUTFILE ($(wc -l < "$OUTFILE") lines)"
 }
 
@@ -172,7 +200,7 @@ do_pi() {
 # copies and just add noise when dist/ is stale.
 do_check() {
   tmp_dir=$(mktemp -d)
-  trap 'rm -rf "$tmp_dir"' EXIT INT TERM
+  CHECK_TMPDIR="$tmp_dir"
 
   build WEB "$tmp_dir/web-index.html"
   build PI "$tmp_dir/pi-clock.html"
@@ -189,12 +217,19 @@ do_check() {
       echo "(no existing $old to compare)"
       continue
     fi
-    changed=$(diff -u "$old" "$new" | grep -c '^[+-][^+-]' || true)
-    if [ "$changed" -eq 0 ]; then
+
+    old_norm="$tmp_dir/$(basename "$old").norm"
+    new_norm="$tmp_dir/$(basename "$new").norm"
+    normalize_stamp "$old" > "$old_norm"
+    normalize_stamp "$new" > "$new_norm"
+
+    added=$(diff -u "$old_norm" "$new_norm" | grep -Ec '^\+([^+]|$)' || true)
+    removed=$(diff -u "$old_norm" "$new_norm" | grep -Ec '^-([^-]|$)' || true)
+    if [ "$added" -eq 0 ] && [ "$removed" -eq 0 ]; then
       echo "unchanged"
     else
-      echo "$changed line(s) differ:"
-      diff -u "$old" "$new" || true
+      echo "+$added / -$removed line(s):"
+      diff -u "$old_norm" "$new_norm" || true
     fi
   done
 }
