@@ -12,21 +12,23 @@ transparent-window compositing are less predictable.
 
 ---
 
-## Phase 0 — Decisions to confirm before starting
+## Phase 0 — Decisions (all settled 2026-07-18)
 
-These change the code, so settle them first:
-
-1. **Window-drag zone vs. clock gestures.** The entire `.clock-container` currently
-   owns pointer events (scrub handle, drag-to-rotate-globe). A whole-face
-   `-webkit-app-region: drag` would swallow all of those. Proposed split:
+1. **Window-drag zone vs. clock gestures — settled: margin ring.** The entire
+   `.clock-container` owns pointer events (scrub handle, drag-to-rotate-globe),
+   so a whole-face `-webkit-app-region: drag` would swallow all of those:
    - **Margin ring** (SVG r 174–200, the outer 13% band holding the logo/arc text
-     margin) → window drag. *Tradeoff: drag-to-rotate-globe no longer works when
-     started in this band. Everything inside r 174 behaves exactly as on web.*
+     margin) → window drag. *Accepted tradeoff: drag-to-rotate-globe no longer
+     works when started in this band. Everything inside r 174 behaves exactly as
+     on web.*
    - **Outermost ~8 px of the circle edge** → resize zone (see Phase 4).
-2. **Minimum / default window size.** Proposed: default 360×360, minimum 220×220
-   (below that the arc text at 8 px SVG units becomes unreadable).
-3. **macOS Spaces behaviour.** `visibleOnAllWorkspaces: true` makes it a true
-   ambient widget (follows you across desktops). Proposed: on by default.
+2. **Minimum / default window size — settled: default 600×600, minimum 320×320.**
+   (Owner's call, revisable once it's on screen. Comfortably above the ~220 px
+   floor where the 8 px-SVG arc text turns unreadable.)
+3. **macOS Spaces behaviour — settled: stays on its Space.**
+   `visibleOnAllWorkspaces` stays **false** — conventional window behaviour, no
+   cross-desktop following. (Could become a preferences toggle when the tray
+   icon lands post-v1.)
 4. **Code signing — settled: sign from day one.** macOS unsigned apps are blocked
    by Gatekeeper ("damaged / unidentified developer"), so distribution from
    eona.earth realistically requires an Apple Developer ID ($99/yr) +
@@ -111,8 +113,8 @@ desktop/
 
 ```js
 new BrowserWindow({
-  width: 360, height: 360,
-  minWidth: 220, minHeight: 220,
+  width: 600, height: 600,       // Phase 0.2
+  minWidth: 320, minHeight: 320,
   frame: false,
   transparent: true,
   backgroundColor: '#00000000',
@@ -124,7 +126,7 @@ new BrowserWindow({
   webPreferences: { preload, contextIsolation: true, nodeIntegration: false }
 })
 win.setAspectRatio(1)          // keep square even through our custom resize
-win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: false })  // per Phase 0.3
+// visibleOnAllWorkspaces stays false per Phase 0.3 — window lives on one Space
 win.loadFile('../dist/desktop/app/index.html')  // resolved relative to app root in dev; packaged path via app.getAppPath()
 ```
 
@@ -217,7 +219,7 @@ Frameless + transparent means no native resize affordance. Implement in the rend
 2. **Drag to resize**: on `pointerdown` in the ring, capture pointer;
    `beginResize()` records the window's current bounds in main. Each `pointermove`
    sends the screen-space delta; main computes the new square size
-   (`size + delta·direction`, clamped to min 220) and calls `win.setBounds()`
+   (`size + delta·direction`, clamped to min 320) and calls `win.setBounds()`
    **resizing around the window centre** (adjust x/y by half the size delta) so the
    clock grows/shrinks in place instead of from the top-left corner.
 3. **Renderer follows automatically**: `--clock-size: min(100vw, 100vh)` re-derives
@@ -289,10 +291,10 @@ without it is permanently manual. So it ships in v1, small as it is:
 - [ ] Corners click through to windows underneath; circle interior does not.
 - [ ] Scrub, drag-to-rotate, event dots, "Return to now" all work inside r 174.
 - [ ] Window drags from the margin ring; resizes from the edge ring; stays square;
-      resizes around centre; respects 220 px minimum.
+      resizes around centre; respects 320 px minimum.
 - [ ] WebGL canvas + haze layers re-derive cleanly at min and large sizes
       (check the 1.021 haze sizing factor still aligns at both extremes).
-- [ ] Always-on-top over normal windows; follows Spaces (macOS).
+- [ ] Always-on-top over normal windows; stays on its own Space (macOS, per Phase 0.3).
 - [ ] Quit path exists (right-click menu or ⌘Q — frameless windows have no close
       button; add a minimal context menu: "Return to now / Quit").
 - [ ] Packaged app launches from a fresh macOS account (Gatekeeper pass) and a
