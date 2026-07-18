@@ -219,10 +219,31 @@ identical (after the duplicate-directory cleanup, which only removes junk).
 
 ## Phase C — Collapse value-only differences into a platform config
 
+> **Status (2026-07-18): C1–C5 implemented, verified, not yet committed.**
+> Verified in the browser preview: web via `server.js` (globe, clouds,
+> mobile ≤600px breakpoint, resize, scrub interaction — no console errors);
+> Pi by serving `dist/pi/clock.html` statically and opening it directly (the
+> fixed 1080×1080 black kiosk layout, absolute-positioned container, and
+> local fonts/three.js all render correctly). Real on-device Pi confirmation
+> still pending, piggybacking on the Phase B check.
+>
+> Two corrections landed against the original plan below, both narrowing its
+> scope for correctness rather than following it as written — see the
+> revised C3 for what actually shipped and why. Directive sites went from
+> **10 to 6**, not 4: `html { background: #0e0e0e }` and the ≤600px mobile
+> media query stayed `@if WEB`-wrapped rather than becoming platform-neutral
+> base rules, because unwrapping either would have been a real (if small)
+> behavioural change for Pi, not just a restructuring. A pre-existing dead
+> declaration, `.clock-container::before { background: transparent }`
+> (already overridden by a later unconditional rule at equal specificity,
+> on web, before this phase touched anything), was deleted rather than
+> unwrapped — see C3.
+
 Most directive sites don't guard *different code* — they guard *different
 constants* flowing through identical code. Move the constants into data and share
-the code. Directive sites drop from **10 to 4**, and a new platform becomes "add
-one config object + one CSS block" instead of ten scattered edits.
+the code. Directive sites drop from **10 to 6** (not the 4 originally estimated
+here — see status note above), and a new platform becomes "add one config
+object + mostly-shared CSS" instead of ten scattered edits.
 
 ### C1. One `PLATFORM` object per target
 
@@ -266,32 +287,73 @@ default style that `setSize` writes, matching today's Pi code.)
 
 ### C3. Consolidate per-platform CSS into one block per platform
 
-- Base rules become platform-neutral with **web values as the default** (web is
-  the reference rendering).
+- Most base rules become platform-neutral with **web values as the default**
+  (web is the reference rendering) — `--clock-size`'s default value and
+  `.clock-container`'s position/sizing unwrap cleanly this way.
+- **Two rules do not unwrap** — they stay `@if WEB`, because doing otherwise
+  would change Pi's actual rendered output, not just where the code for it
+  lives:
+  - `html { background: #0e0e0e; }` — Pi's `html` currently has no
+    background at all (only `body` does), so the black body box shows
+    through the whole viewport regardless. Unwrapping this would give Pi's
+    canvas an `#0e0e0e` `html` background too — visually identical only
+    because the Pi display happens to be exactly 1080×1080 with nothing to
+    show through, which is a coincidence of the current hardware, not a
+    property of the rule. Not worth the risk in a phase whose whole gate is
+    behavioural equivalence.
+  - The `@media (max-width: 600px)` block — stays scoped to web; Pi's fixed
+    1080px viewport would never trigger it either way, but there's no
+    reason to make it platform-neutral until desktop needs its own
+    breakpoint policy.
+- `.clock-container::before { background: transparent; }` (previously
+  `@if WEB`-only) is **deleted**, not unwrapped. It was already dead code on
+  web before this phase: a later unconditional rule
+  (`.clock-container::before { ...background: var(--bg)... }`) targets the
+  same property at equal specificity and wins by document order today.
+  Deleting it is behaviour-preserving by the same standard as the rest of
+  this phase; unwrapping it would have made it worse — a dead declaration
+  that at least looked web-intentional becoming a platform-neutral line that
+  looks load-bearing. **`DESKTOP-APP-PLAN.md`'s Phase 1b table referenced this
+  exact line** ("do not copy web's `::before { background: transparent }`
+  override") — updated in the same commit since the line it warned about no
+  longer exists.
 - Each platform gets **one** override block at the end of `<style>` (cascade
-  order does the work — no specificity games):
+  order does the work — no specificity games). This is what actually
+  shipped, including `overflow: hidden` (present in the original per-platform
+  rule, dropped from the illustrative snippet below in an earlier draft of
+  this doc) and an explicit `display: block` on Pi's `body`:
 
 ```css
 <!-- @if PI -->
 /* === Pi overrides: fixed 1080×1080 kiosk === */
 :root { --clock-size: 1080px; }
-html, body { width: 1080px; height: 1080px; }
+html, body { width: 1080px; height: 1080px; overflow: hidden; }
 body { display: block; background: #000000; }
-.clock-container { position: absolute; inset: 0; }
-.clock-container::before { background: var(--bg); }
+.clock-container { position: absolute; inset: 0; width: 1080px; height: 1080px; }
 <!-- @endif -->
 ```
 
-The web mobile media query lives in web's block; the `@font-face` block is kept
-separate and becomes `@if PI|DESKTOP` when desktop lands (it's "local-asset
-platforms," not Pi-specific). Add the missing **Space Mono 700** face while
-touching it (fixes problem 10).
+The `display: block` on Pi's `body` is a deliberate, documented no-op: the
+neutral base rule now gives `body` `display: flex` (web's centring
+behaviour), which is inert for Pi regardless because `.clock-container` is
+`position: absolute` there — but carrying the explicit override keeps that
+inertness from being an accident that a future edit to `.clock-container`
+could silently break.
+
+The web mobile media query lives in web's block (see above); the
+`@font-face` block is kept separate and becomes `@if PI|DESKTOP` when desktop
+lands (it's "local-asset platforms," not Pi-specific). The missing
+**Space Mono 700** face was added while touching it — fixes item 10 of the
+Problems list at the top of this document (synthetic bold on Pi).
 
 ### C4. What stays as structural directives (correctly)
 
 - `<head>`: meta/OG/analytics/CDN vs. local script tags — genuinely different
   markup, stays `@if WEB` / `@if PI` (+ `PI|DESKTOP` sharing later).
 - `@font-face` block.
+- `html { background: #0e0e0e; }` and the `≤600px` mobile media query — both
+  stay `@if WEB` per the C3 revision above; not part of the original plan for
+  this section, added after review.
 - Per-platform CSS override block.
 - `PLATFORM` const block.
 
@@ -432,7 +494,7 @@ stale).
 | ~~A. Pi time-sync fix~~ **done 2026-07-15** (A2 battery declined) | — | verified: sync ~10 s after cold boot |
 | ~~B. build.sh hardening~~ **done 2026-07-18** (`fa589aa`) | small | web+pi outputs byte-identical — verified locally; on-device Pi run still pending (next routine deploy) |
 | ~~D1–D2. stamp + auto-rebuild~~ **done 2026-07-18** | small | stamp visible in all outputs — verified live via browser preview against `server.js`; not yet confirmed on Pi/desktop |
-| C. PLATFORM config + CSS consolidation | medium | visual verification web + Pi-build-in-Chrome + on-device |
+| ~~C. PLATFORM config + CSS consolidation~~ **done 2026-07-18** | medium | visual verification web + Pi-build-in-Chrome — both passed; on-device Pi run still pending (piggybacks on Phase B's) |
 | ~~D3. CLAUDE.md workflow docs~~ **done 2026-07-18** | small | — |
 | Desktop plan Phase 1+ | per its own plan | `./build.sh check` clean |
 

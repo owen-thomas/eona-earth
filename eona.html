@@ -51,6 +51,13 @@
       font-display: swap;
       src: url('fonts/space-mono-400.woff2') format('woff2');
     }
+    @font-face {
+      font-family: 'Space Mono';
+      font-style: normal;
+      font-weight: 700;
+      font-display: swap;
+      src: url('fonts/space-mono-700.woff2') format('woff2');
+    }
 <!-- @endif -->
     :root {
       --black: #000000;
@@ -69,12 +76,7 @@
       /* Layout: earth 33% + eon ring 30% + outer ring 30% + margin 7% = 100%
          SVG viewBox 0 0 400 400, center (200,200), clock radius 200 = edge.
          Earth r=66, eon ring 66–120, outer ring 120–174, margin 174–200. */
-<!-- @if WEB -->
       --clock-size: min(calc(100vw - 96px), calc(100vh - 96px));
-<!-- @endif -->
-<!-- @if PI -->
-      --clock-size: 1080px;
-<!-- @endif -->
       --earth-size: calc(var(--clock-size) * 0.33);
       --earth-canvas-size: calc(var(--earth-size) * 1.25);
       /* Ring dimensions in px (derived from SVG radii / 400 × clock-size) */
@@ -90,16 +92,11 @@
 <!-- @endif -->
     
     * { margin: 0; padding: 0; box-sizing: border-box; }
-<!-- @if WEB -->
     html, body { width: 100%; height: 100%; overflow: hidden; }
+<!-- @if WEB -->
     html { background: #0e0e0e; }
+<!-- @endif -->
     body { display: flex; align-items: center; justify-content: center; background: transparent; }
-    .clock-container::before { background: transparent; }
-<!-- @endif -->
-<!-- @if PI -->
-    html, body { width: 1080px; height: 1080px; overflow: hidden; }
-    body { background: #000000; }
-<!-- @endif -->
 
     body {
       color: var(--text);
@@ -125,17 +122,9 @@
     /* Accent colour is set dynamically per-state from JS */
     
     .clock-container {
-<!-- @if WEB -->
       position: relative;
       width: var(--clock-size);
       height: var(--clock-size);
-<!-- @endif -->
-<!-- @if PI -->
-      position: absolute;
-      inset: 0;
-      width: 1080px;
-      height: 1080px;
-<!-- @endif -->
       touch-action: none;
     }
     
@@ -435,6 +424,14 @@
       height: calc(var(--earth-size) * 1.021);
     }
 
+<!-- @if PI -->
+    /* === Pi overrides: fixed 1080×1080 kiosk === */
+    :root { --clock-size: 1080px; }
+    html, body { width: 1080px; height: 1080px; overflow: hidden; }
+    body { display: block; background: #000000; }
+    .clock-container { position: absolute; inset: 0; width: 1080px; height: 1080px; }
+<!-- @endif -->
+
   </style>
 </head>
 <body>
@@ -522,6 +519,13 @@
   <script>
 
     console.log('build: __BUILD_INFO__');
+
+<!-- @if WEB -->
+    const PLATFORM = { name: 'web', antialias: true,  renderScale: 1,   maxDPR: 2, sphereSegments: 48, edgeAlphaStart: 0.97 };
+<!-- @endif -->
+<!-- @if PI -->
+    const PLATFORM = { name: 'pi',  antialias: false, renderScale: 0.5, maxDPR: 1, sphereSegments: 32, edgeAlphaStart: 0.88 };
+<!-- @endif -->
 
     // === PALEOGEOGRAPHIC SDF ATLAS (base64-encoded PNG) ===
     // 11 signed-distance fields stacked vertically, one per timestamp
@@ -1677,42 +1681,29 @@
       
       earthRenderer = new THREE.WebGLRenderer({
         canvas: canvas,
-<!-- @if WEB -->
-        antialias: true,
-<!-- @endif -->
-<!-- @if PI -->
-        antialias: false,
-<!-- @endif -->
+        antialias: PLATFORM.antialias,
         alpha: true
       });
       earthRenderer.setClearColor(0x000000, 0);
-<!-- @if WEB -->
-      earthRenderer.setSize(size, size);
-      earthRenderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-      // Native/upscaled-DPR render has plenty of source pixels for a tight
-      // edge fade.
-      const EDGE_ALPHA_START = 0.97;
-<!-- @endif -->
-<!-- @if PI -->
-      // Render at half resolution and CSS-scale up — 4× fewer pixels to shade.
-      earthRenderer.setSize(Math.floor(size * 0.5), Math.floor(size * 0.5));
-      earthRenderer.setPixelRatio(1);
-      canvas.style.width = size + 'px';
-      canvas.style.height = size + 'px';
-      // Half-res render means the disc's alpha fade only has a few real
-      // pixels to work with before the 2× CSS upscale stretches them —
-      // widen the fade band so it looks smooth instead of blocky. Free:
-      // same shader instruction, just a different constant.
-      const EDGE_ALPHA_START = 0.88;
-<!-- @endif -->
+
+      // Renders at PLATFORM.renderScale × requested size, then CSS-sizes the
+      // canvas back up to the full size (a no-op when renderScale is 1, but
+      // required when it isn't — canvas.style overrides setSize's default
+      // style). Fewer real pixels to shade means the disc's alpha fade needs
+      // a wider band before the CSS upscale to avoid looking blocky, hence
+      // PLATFORM.edgeAlphaStart varying per platform below.
+      function sizeRenderer(sz) {
+        const px = Math.floor(sz * PLATFORM.renderScale);
+        earthRenderer.setSize(px, px);
+        earthRenderer.setPixelRatio(Math.min(window.devicePixelRatio, PLATFORM.maxDPR));
+        canvas.style.width = sz + 'px';
+        canvas.style.height = sz + 'px';
+      }
+      sizeRenderer(size);
+      const EDGE_ALPHA_START = PLATFORM.edgeAlphaStart;
 
       // Create sphere with custom shader material
-<!-- @if WEB -->
-      const geometry = new THREE.SphereGeometry(1, 48, 48);
-<!-- @endif -->
-<!-- @if PI -->
-      const geometry = new THREE.SphereGeometry(1, 32, 32);
-<!-- @endif -->
+      const geometry = new THREE.SphereGeometry(1, PLATFORM.sphereSegments, PLATFORM.sphereSegments);
 
       // Load the SDF atlas texture. The base64 data URI lives at the end of
       // this script (SDF_ATLAS_BASE64) — a single-file, offline-capable HTML.
@@ -1829,18 +1820,7 @@
       earthScene.add(earthSphere);
 
       // Handle resize
-      window.addEventListener('resize', () => {
-        const newSize = container.offsetWidth || 150;
-<!-- @if WEB -->
-        earthRenderer.setSize(newSize, newSize);
-        earthRenderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-<!-- @endif -->
-<!-- @if PI -->
-        earthRenderer.setSize(Math.floor(newSize * 0.5), Math.floor(newSize * 0.5));
-        canvas.style.width = newSize + 'px';
-        canvas.style.height = newSize + 'px';
-<!-- @endif -->
-      });
+      window.addEventListener('resize', () => sizeRenderer(container.offsetWidth || 150));
     }
     
     let _smoothCloudDens = null;

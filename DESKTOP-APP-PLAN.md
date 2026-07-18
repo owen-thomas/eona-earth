@@ -65,7 +65,7 @@ at each existing `@if` site:
 |---|---|---|---|
 | `<head>` (~6–36) | meta/OG/CDN fonts/CDN three.js/Vercel insights | local three.js | local three.js + local fonts (`@font-face` like Pi), no analytics, no OG meta |
 | `--clock-size` (~72–76) | `min(100vw−96px, 100vh−96px)` | `1080px` | `min(100vw, 100vh)` — clock fills window exactly, resizes with it |
-| `html, body` (~93–101) | `#0e0e0e` page bg | 1080px fixed, black | `background: transparent` on html AND body; `overflow: hidden`. The black circle comes from `.clock-container::before` (already `var(--bg)` in the base rule — do **not** copy web's `::before { background: transparent }` override) |
+| `html, body` (~93–101) | `#0e0e0e` page bg | 1080px fixed, black | `background: transparent` on html AND body; `overflow: hidden`. The black circle comes from `.clock-container::before` (`var(--bg)`, unconditional — same rule for all three platforms as of Phase C; there is no longer a web-only `::before` override to avoid copying) |
 | `.clock-container` (~127–137) | relative, `var(--clock-size)` | absolute 1080px | same as WEB |
 | Renderer (~1677–1712) | antialias, DPR ≤2, 48×48 sphere | half-res, 32×32 | same as WEB |
 | Resize handler (~1831–1839) | setSize + DPR | half-res | same as WEB |
