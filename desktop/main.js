@@ -9,14 +9,21 @@ if (!app.requestSingleInstanceLock()) {
 } else {
   let win = null;
 
-  // With no Dock icon, relaunching the app is how a user "finds" it again —
-  // focus the existing window instead of leaving them wondering nothing happened.
-  app.on('second-instance', () => {
+  // Accessory activation policy (app.dock.hide()) means focusing the window
+  // alone doesn't make the app active — app.focus({steal:true}) is required
+  // too, same as the 'activate' IPC handler below. Shared here so neither
+  // caller can drift out of sync with the other.
+  function activateWindow() {
+    app.focus({ steal: true });
     if (win) {
       if (win.isMinimized()) win.restore();
       win.focus();
     }
-  });
+  }
+
+  // With no Dock icon, relaunching the app is how a user "finds" it again —
+  // focus the existing window instead of leaving them wondering nothing happened.
+  app.on('second-instance', () => activateWindow());
 
   function createWindow() {
     if (!fs.existsSync(APP_HTML)) {
@@ -60,7 +67,15 @@ if (!app.requestSingleInstanceLock()) {
     // menu bar keeps showing the previously-active app even after this
     // window becomes key, so Cmd+Q would quit that app instead.
     win.webContents.on('before-input-event', (event, input) => {
-      if (input.meta && input.key.toLowerCase() === 'q') app.quit();
+      if (
+        input.type === 'keyDown' &&
+        input.meta &&
+        !input.alt &&
+        !input.shift &&
+        input.key.toLowerCase() === 'q'
+      ) {
+        app.quit();
+      }
     });
 
     if (!app.isPackaged && process.env.EONA_DEVTOOLS) {
@@ -71,10 +86,7 @@ if (!app.requestSingleInstanceLock()) {
   }
 
   ipcMain.on('quit', () => app.quit());
-  ipcMain.on('activate', () => {
-    app.focus({ steal: true });
-    if (win) win.focus();
-  });
+  ipcMain.on('activate', () => activateWindow());
 
   app.whenReady().then(() => {
     if (process.platform === 'darwin') app.dock.hide(); // before window creation — hiding after causes focus-loss/icon-flash quirks

@@ -120,19 +120,59 @@ used (Pi block currently omits it — verify rendering).
 
 ---
 
-## Phase 2 — Electron shell
+## Phase 2 — Electron shell — landed 2026-07-18 (9f4810b, second-instance fix same day)
 
-New top-level `desktop/` directory (checked in; `dist/` stays git-ignored build output):
+> **Closed.** `desktop/main.js`/`preload.js` match the shape below with two
+> deliberate deviations, both forced by hands-on testing rather than planned
+> up front:
+> - **`skipTaskbar: true`, decided** — widget-like, no Dock/taskbar icon.
+> - **Bridge shipped as `version: 2` with only `quit` and `activate`** —
+>   `setIgnoreMouse`/`beginResize`/`resizeDelta` are deferred to Phases 3/4,
+>   added alongside their main-process handler *and* the renderer call that
+>   uses them (see "Bridge guard convention" below — a channel with no
+>   caller and no real handler logic isn't verifiable, so it isn't added
+>   early). `activate` was *not* in the original plan at all — see the
+>   accessory-policy gotcha below for why it turned out to be required.
+> - `main.js`/`preload.js` snippets in this section are kept as historical
+>   record of the original plan; the bullets above and the gotcha below are
+>   what's actually in the repo. Icons/`icons/` dir remain Phase 5 (no icon
+>   assets exist yet).
 
-```
-desktop/
-  package.json        # electron + electron-builder devDeps, build config
-  main.js             # window creation, IPC handlers
-  preload.js          # contextBridge → window.eona API
-  icons/              # icon.icns, icon.ico, icon.png (from logo/favicon art)
-```
+### ⚠️ Gotcha discovered in Phase 2 — macOS Accessory activation policy
 
-### `main.js` — BrowserWindow config
+`app.dock.hide()` (needed for the widget-like no-Dock-icon decision) puts the
+app under macOS's **Accessory** activation policy. Confirmed by hands-on
+testing, not just docs — this has two consequences that will keep mattering
+in later phases:
+
+1. **No auto-activation on window click.** A normal (Regular-policy) app
+   becomes the active app when its window is clicked; an Accessory-policy
+   app does not — the window can become the *key window* (receives
+   mouse/keyboard) without the app ever becoming *active*. Fix: an explicit
+   `app.focus({ steal: true })` call, paired with `win.focus()`. This pairing
+   must be used by **every** code path that wants to bring the window
+   forward — `main.js` has one `activateWindow()` used by both the
+   `activate` IPC handler (wired to a `pointerdown` listener in `eona.html`,
+   `@if DESKTOP` only) and the `second-instance` handler. Any future
+   window-focusing path (a tray icon's "show", for instance) needs the same
+   pairing, not just `win.focus()`.
+2. **The app never owns the menu bar**, so the default Electron app-menu
+   Cmd+Q key equivalent can never reach this window, regardless of which
+   window has keyboard focus — confirmed empirically, not merely
+   version-dependent. The real (only) mechanism is a
+   `webContents.on('before-input-event')` handler in `main.js` matching
+   Cmd+Q directly. It is not a fallback.
+3. **The `pointerdown → activate()` chain is the entire activation surface,
+   and it's load-bearing for quitting** (Cmd+Q only reaches the window once
+   it's key). Phase 3's click-through work must not remove this without a
+   replacement — once transparent corners ignore mouse events, the visible
+   circle is the *only* remaining surface that can activate the window, so
+   the listener must stay attached to something still hit-testable after
+   Phase 3 lands. Same applies to Phase 6's planned right-click quit menu:
+   opening a context menu is itself an activation-requiring interaction
+   under this policy.
+
+### `main.js` — BrowserWindow config (original plan, see landed note above)
 
 ```js
 new BrowserWindow({
@@ -163,7 +203,7 @@ Gotchas to handle:
   out of scope for v1 (macOS + Windows only).
 - App lifecycle: quit on window close (no dock-lurking), single-instance lock.
 
-### `preload.js` — bridge API
+### `preload.js` — bridge API (original plan, see landed note above)
 
 ```js
 contextBridge.exposeInMainWorld('eona', {
