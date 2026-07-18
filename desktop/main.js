@@ -2,7 +2,14 @@ const { app, BrowserWindow, ipcMain, screen } = require('electron');
 const path = require('path');
 const fs = require('fs');
 
-const APP_HTML = path.join(__dirname, '..', 'dist', 'desktop', 'app', 'index.html');
+// Packaged layout has no sibling dist/ at all — only what's explicitly
+// bundled via extraResources ("clock", not "app": Resources/app is precisely
+// the directory name Electron's bootstrapper probes as an application source
+// root, sitting right next to Resources/app.asar; reusing that name would
+// make correctness depend on undocumented probe ordering).
+const APP_HTML = app.isPackaged
+  ? path.join(process.resourcesPath, 'clock', 'index.html')
+  : path.join(__dirname, '..', 'dist', 'desktop', 'app', 'index.html');
 
 if (!app.requestSingleInstanceLock()) {
   app.quit();
@@ -52,8 +59,15 @@ if (!app.requestSingleInstanceLock()) {
 
   function createWindow() {
     if (!fs.existsSync(APP_HTML)) {
+      // Two messages, not one, because the fix is different in each case —
+      // "run the build script" is correct advice in dev and nonsense in a
+      // packaged app, where a missing index.html means the package itself
+      // is broken (extraResources misconfigured, or dist/desktop/app wasn't
+      // built before packaging).
       throw new Error(
-        `${APP_HTML} not found — run "./build.sh desktop" from the repo root first.`
+        app.isPackaged
+          ? `${APP_HTML} not found — the package is broken (extraResources misconfigured, or dist/desktop/app wasn't built before running electron-builder).`
+          : `${APP_HTML} not found — run "./build.sh desktop" from the repo root first.`
       );
     }
 
