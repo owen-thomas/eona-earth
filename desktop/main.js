@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain } = require('electron');
+const { app, BrowserWindow, ipcMain, screen } = require('electron');
 const path = require('path');
 const fs = require('fs');
 
@@ -8,6 +8,23 @@ if (!app.requestSingleInstanceLock()) {
   app.quit();
 } else {
   let win = null;
+  let dragInterval = null;
+
+  // Manual drag, not -webkit-app-region: drag — that property hit-tests
+  // against layout bounding boxes, not painted/masked shape, so it can't
+  // produce a genuinely annular drag region (a masked ring drags the whole
+  // square; a nested no-drag square only carves out the ring near the
+  // compass points, missing the diagonals entirely). Polling the OS cursor
+  // position directly (rather than streaming renderer pointermove deltas)
+  // avoids a feedback loop between window position and client-relative
+  // coordinates, since screen coordinates don't shift as the window moves
+  // under a stationary cursor.
+  function stopDrag() {
+    if (dragInterval) {
+      clearInterval(dragInterval);
+      dragInterval = null;
+    }
+  }
 
   // Accessory activation policy (app.dock.hide()) means focusing the window
   // alone doesn't make the app active — app.focus({steal:true}) is required
@@ -53,6 +70,11 @@ if (!app.requestSingleInstanceLock()) {
 
     win.setAlwaysOnTop(true, 'floating'); // above normal windows, below panels (macOS)
 
+    // Safety net: if pointerup/pointercancel is ever missed (e.g. focus
+    // lands elsewhere mid-drag), stop the drag polling loop anyway — leaving
+    // it running would make the window follow the cursor forever.
+    win.on('blur', () => stopDrag());
+
     // Documentation of intent only — resizable:false disables native resize
     // entirely, so this doesn't constrain anything yet. Phase 4's custom
     // resize (setBounds) must enforce both squareness and the 320px floor
@@ -87,6 +109,28 @@ if (!app.requestSingleInstanceLock()) {
 
   ipcMain.on('quit', () => app.quit());
   ipcMain.on('activate', () => activateWindow());
+
+  ipcMain.on('ignore-mouse', (event, ignore) => {
+    // forward: true keeps mousemove flowing to the renderer while ignoring
+    // so it can detect re-entry — without it, ignoring never turns itself
+    // back off. (Also: this stops working while devtools are open, a known
+    // Electron limitation — test click-through with devtools closed.)
+    if (win) win.setIgnoreMouseEvents(ignore, { forward: true });
+  });
+
+  ipcMain.on('begin-drag', () => {
+    if (!win || dragInterval) return;
+    const startCursor = screen.getCursorScreenPoint();
+    const startBounds = win.getBounds();
+    dragInterval = setInterval(() => {
+      const cur = screen.getCursorScreenPoint();
+      win.setPosition(
+        Math.round(startBounds.x + (cur.x - startCursor.x)),
+        Math.round(startBounds.y + (cur.y - startCursor.y))
+      );
+    }, 16);
+  });
+  ipcMain.on('end-drag', () => stopDrag());
 
   app.whenReady().then(() => {
     if (process.platform === 'darwin') app.dock.hide(); // before window creation — hiding after causes focus-loss/icon-flash quirks

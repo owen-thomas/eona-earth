@@ -540,11 +540,45 @@
 <!-- @if DESKTOP -->
     const PLATFORM = { name: 'desktop', antialias: true, renderScale: 1, maxDPR: 2, sphereSegments: 48, edgeAlphaStart: 0.97 };
 
+    // Margin-ring annulus check (SVG r174–200, Phase 0's settled drag zone),
+    // scaled the same way the CSS custom properties are: --clock-size is the
+    // on-screen diameter and the SVG viewBox is 400 units for that same
+    // diameter, so a boundary at SVG radius R is (clockSize * R / 400) px
+    // from window centre.
+    function inDesktopDragRing(clientX, clientY) {
+      const clockSize = Math.min(window.innerWidth, window.innerHeight);
+      const dist = Math.hypot(clientX - window.innerWidth / 2, clientY - window.innerHeight / 2);
+      return dist >= clockSize * 174 / 400 && dist <= clockSize * 200 / 400;
+    }
+
     // Hiding the Dock icon (main.js) puts the app under macOS's Accessory
     // activation policy, which does not auto-activate the app when its
     // window is clicked (unlike a normal app) — request activation
     // explicitly so the window can actually receive keyboard focus.
-    document.addEventListener('pointerdown', () => window.eona?.activate?.());
+    document.addEventListener('pointerdown', (e) => {
+      window.eona?.activate?.();
+      // Manual drag, not -webkit-app-region: drag — see main.js for why
+      // (bounding-box hit-testing can't produce a genuinely annular region).
+      if (inDesktopDragRing(e.clientX, e.clientY)) window.eona?.beginDrag?.();
+    });
+    document.addEventListener('pointerup', () => window.eona?.endDrag?.());
+    document.addEventListener('pointercancel', () => window.eona?.endDrag?.());
+
+    // Click-through for the transparent corners outside the visible circle —
+    // without this, the invisible corners steal clicks from windows
+    // underneath. Only calls setIgnoreMouse on state *change*, not every
+    // mousemove; forward:true (main.js) keeps mousemove flowing while
+    // ignoring so re-entry can still be detected.
+    let _desktopIgnoringMouse = false;
+    document.addEventListener('mousemove', (e) => {
+      const clockRadius = Math.min(window.innerWidth, window.innerHeight) / 2;
+      const dist = Math.hypot(e.clientX - window.innerWidth / 2, e.clientY - window.innerHeight / 2);
+      const outside = dist > clockRadius;
+      if (outside !== _desktopIgnoringMouse) {
+        _desktopIgnoringMouse = outside;
+        window.eona?.setIgnoreMouse?.(outside);
+      }
+    });
 <!-- @endif -->
 
     // === PALEOGEOGRAPHIC SDF ATLAS (base64-encoded PNG) ===
