@@ -18,12 +18,36 @@ const MIME = {
   '.woff2':'font/woff2',
 };
 
-// Build the web variant before starting
+const SOURCE = path.join(ROOT, 'eona.html');
+const WEB_INDEX = path.join(WEB_DIR, 'index.html');
+
+function buildWeb() {
+  execSync('./build.sh web', { cwd: ROOT, stdio: 'pipe', encoding: 'utf8' });
+}
+
+// Rebuilds dist/web/index.html iff eona.html has changed since it was last
+// built — the edit → refresh loop, no watcher process.
+function ensureWebBuilt() {
+  const srcMtime = fs.statSync(SOURCE).mtimeMs;
+  let distMtime = 0;
+  try {
+    distMtime = fs.statSync(WEB_INDEX).mtimeMs;
+  } catch {
+    distMtime = 0; // no dist yet — treat as stale
+  }
+  if (srcMtime > distMtime) {
+    buildWeb();
+  }
+}
+
+// Build the web variant before starting — a server that never had a valid
+// dist/ shouldn't pretend to serve one.
 console.log('Building web variant…');
 try {
-  execSync('./build.sh web', { cwd: ROOT, stdio: 'inherit' });
+  buildWeb();
 } catch (e) {
   console.error('build.sh failed — fix the error and restart server');
+  console.error((e.stderr || e.stdout || e.message || '').toString());
   process.exit(1);
 }
 
@@ -32,6 +56,20 @@ try {
 http.createServer((req, res) => {
   let urlPath = req.url.split('?')[0];
   if (urlPath === '/') urlPath = '/index.html';
+
+  // Only index.html triggers a staleness check — asset requests (images,
+  // fonts, lib) are served live from the repo root regardless via the
+  // fallback below, so they don't need dist/ to be current.
+  if (urlPath === '/index.html') {
+    try {
+      ensureWebBuilt();
+    } catch (e) {
+      const output = ((e.stderr || '') + (e.stdout || '') || (e.message || '')).toString();
+      res.writeHead(500, { 'Content-Type': 'text/plain' });
+      res.end('build.sh failed:\n\n' + output);
+      return;
+    }
+  }
 
   // Try dist/web/ first, then repo root
   const candidates = [

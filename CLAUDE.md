@@ -89,6 +89,34 @@ Layers stack bottom-to-top: `#infographic-layer` → `#earth-shadow` → `#earth
   - `dist/web/index.html` + `dist/web/images/` — served by Vercel and `server.js`
   - `dist/pi/clock.html` — deployed to the Raspberry Pi
 
+### Development Workflow
+
+- **Raw `eona.html` is not runnable** — both platforms' `@if` blocks coexist
+  (e.g. duplicate `const` declarations) until `build.sh` strips one side. Always
+  test via `dist/`, never by opening `eona.html` directly.
+- **Develop:** edit `eona.html`, then load/refresh `localhost:3000`. `server.js`
+  rebuilds `dist/web/index.html` automatically whenever `eona.html` is newer
+  than the last build — no watcher process, no separate terminal. A failed
+  build shows the `build.sh` error as the page body instead of crashing the
+  server; fix and refresh again.
+- **Pre-commit:** `./build.sh check` — builds both targets to a temp dir,
+  runs the same validation as a real build (unbalanced/unknown directives
+  fail loudly), and diffs the generated HTML against `dist/` so you can see
+  exactly which platform(s) your edit touched.
+- **Deploy web:** push to `main` — Vercel runs `./build.sh web`.
+- **Deploy Pi:** `ssh pi@eona.local`, then `cd ~/eona && git pull && ./build.sh pi && sudo reboot`
+  (Wayland means `DISPLAY=:0` doesn't work over SSH — reboot is how Chromium
+  reloads).
+- **Deploy desktop:** (once built) `./build.sh desktop && cd desktop && npx electron-builder`
+  — see `DESKTOP-APP-PLAN.md`.
+- **Build stamp:** every build substitutes `__BUILD_INFO__` with
+  `<platform> <sha>[-dirty] <iso-date>` (an HTML comment near the top of
+  `<head>` and a one-line `console.log`). `-dirty` covers both staged and
+  unstaged edits against `HEAD`. This exact format is a stable protocol —
+  the planned desktop remote-content loader will diff stamps to decide
+  freshness, so don't reformat it without updating that reader (see
+  `BUILD-SYSTEM-PLAN.md` Phase D).
+
 ### Key Functions
 ```js
 timeToMa(h, m, s)           // local time → Ma (12-hour cycle: uses h % 12)

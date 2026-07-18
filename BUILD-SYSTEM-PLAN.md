@@ -150,6 +150,18 @@ Issues (Pi).
 
 ## Phase B — Harden `build.sh` (output must stay byte-identical)
 
+> **Status (2026-07-18): B1–B5 implemented, committed (`fa589aa`), pushed to
+> `main`.** Verified locally: `./build.sh all` output byte-identical to the
+> pre-change baseline (diffed against a snapshot taken before editing); the
+> only tree differences were the historical nested-junk dirs disappearing.
+> Synthetic test files confirmed all four validation failure paths (unknown
+> token, unbalanced `@if`, orphan `@else`, orphan `@endif`) exit non-zero with
+> `set -e` propagating correctly. **Still open:** one real `git pull &&
+> ./build.sh pi` run on the Pi itself, to confirm mawk/dash compatibility and
+> that the nested-junk cleanup lands there too — deliberately not done over
+> SSH as part of this change (see revised B1 note below); do it on the next
+> routine Pi deploy.
+
 Pure infrastructure; web and Pi outputs must not change. This lands **before**
 any desktop work so the desktop plan's "byte-identical" gate is trustworthy.
 
@@ -163,8 +175,12 @@ copy_assets() {  # copy_assets <src-dir> <dest-dir>
 }
 ```
 
-Use it in every case branch. One-time cleanup: `rm -rf dist` locally **and on the
-Pi** (`ssh pi@eona.local 'rm -rf ~/eona/dist'` before the next pull+build).
+Use it in every case branch. One-time cleanup: `rm -rf dist` **locally only**
+(needed for a clean B5 baseline diff). No separate SSH cleanup on the Pi —
+`copy_assets()`'s `rm -rf` on each destination means the next routine deploy
+(`git pull && ./build.sh pi`) removes `dist/pi/fonts/fonts/` and
+`dist/pi/images/images/` as a side effect of rebuilding. The Pi self-heals on
+its normal update path.
 
 ### B2. Token-agnostic directives with OR lists
 
@@ -187,10 +203,12 @@ After writing each output file:
 
 - Bare `./build.sh` builds **all** targets — makes "rebuild everything" the
   default habit, so no target quietly goes stale.
-- `./build.sh check`: builds all targets to a temp dir, runs the B3 validations,
-  and prints a per-target diffstat against the current `dist/`. This is the
-  direct answer to "did my change apply to every app I meant it to?" — after any
-  edit you see exactly which platforms' outputs changed, and by how much.
+- `./build.sh check`: builds all targets to a temp dir (exercising the same B3
+  validations as a real build), then diffs only the generated HTML against the
+  current `dist/` — not the asset trees, which are verbatim copies and just
+  add noise. Prints a changed-line count per target and the full unified diff
+  when they differ. This is the direct answer to "did my change apply to
+  every app I meant it to?"
 
 ### B5. Verification
 
@@ -290,13 +308,38 @@ Pi.
 
 ## Phase D — Workflow: provenance + tight edit loop
 
+> **Status (2026-07-18): D1–D3 implemented, committed, pushed.** Verified in
+> the browser preview against `server.js`: build stamp visible via
+> `read_console_messages` immediately after startup; `touch eona.html` +
+> refresh produced a new timestamp with no server restart (proves the
+> mid-request rebuild fires); an injected broken directive (`@if BOGUS`)
+> returned a 500 with the `build.sh` error text as the page body, the server
+> process stayed up, and `dist/web/index.html` was untouched (Phase B's
+> atomic write held); reverting the bad directive and refreshing recovered
+> cleanly with a fresh timestamp. Not yet exercised on Pi/desktop — the
+> comment-token placement (before the first `@if`) means it needs no
+> platform-specific work there, but hasn't been visually confirmed on-device.
+
 ### D1. Build stamp
 
-`build.sh` replaces a `__BUILD_INFO__` token with `<platform> <git short-sha>
-<iso-date>` — emitted as an HTML comment near the top and a one-line
-`console.log`. Answers "what is this screen actually running?" for all three
-targets: `grep built dist/pi/clock.html` after a Pi pull, view-source on
-eona.earth, console in the desktop app.
+`build.sh` replaces every `__BUILD_INFO__` token with a fixed-format stamp:
+`<platform> <sha>[-dirty] <iso-date>` (lowercase platform, git short-sha,
+`-dirty` when `git diff --quiet HEAD -- eona.html` reports staged or
+unstaged changes, UTC ISO-8601 date) — one line, substituted via a single
+`gsub` in the same awk pass that strips directives. Used at two sites in
+`eona.html`: an HTML comment right after `<meta charset="UTF-8">` (before the
+first `@if`, so it's platform-neutral by construction) and a `console.log` as
+the first line of the inline `<script>`. Answers "what is this screen
+actually running?" for all three targets: `grep build: dist/pi/clock.html`
+after a Pi pull, view-source on eona.earth, console in the desktop app.
+
+**This format is locked, not cosmetic** — the desktop app's planned
+remote-content loader (see `DESKTOP-APP-PLAN.md`) will parse and compare
+these stamps to decide whether fetched content is newer than what's running.
+Don't reformat without updating that reader. Also: the stamp string must
+never contain `&` or `\` — both are special in awk's `gsub` replacement
+argument; the current charset (lowercase/digits/dashes/colons/T/Z) is safe by
+construction, but a future format change should keep that constraint in mind.
 
 ### D2. Auto-rebuild in `server.js`
 
@@ -305,6 +348,15 @@ On each request for `/index.html`, if `eona.html` is newer than
 becomes **edit → refresh** with no extra terminal, no watcher process, no new
 dependencies. (A `./build.sh watch` fswatch loop is the alternative; the
 server.js hook is less machinery.)
+
+The startup build and the per-request build behave differently on failure:
+startup still `process.exit(1)`s (a server that never had a valid `dist/`
+shouldn't pretend to serve one), but a failure during a live request is
+caught and returned as a 500 with the `build.sh` output as the response
+body — the dev server stays up and you see the error in the browser instead
+of losing the terminal session. This needs `execSync` run with `stdio:
+'pipe'` (not `'inherit'`) so `e.stderr`/`e.stdout` are actually available to
+build the response.
 
 ### D3. Document the canonical loop in CLAUDE.md
 
@@ -378,10 +430,10 @@ stale).
 | Step | Size | Gate |
 |---|---|---|
 | ~~A. Pi time-sync fix~~ **done 2026-07-15** (A2 battery declined) | — | verified: sync ~10 s after cold boot |
-| B. build.sh hardening | small | web+pi outputs byte-identical |
-| D1–D2. stamp + auto-rebuild | small | stamp visible in all outputs |
+| ~~B. build.sh hardening~~ **done 2026-07-18** (`fa589aa`) | small | web+pi outputs byte-identical — verified locally; on-device Pi run still pending (next routine deploy) |
+| ~~D1–D2. stamp + auto-rebuild~~ **done 2026-07-18** | small | stamp visible in all outputs — verified live via browser preview against `server.js`; not yet confirmed on Pi/desktop |
 | C. PLATFORM config + CSS consolidation | medium | visual verification web + Pi-build-in-Chrome + on-device |
-| D3. CLAUDE.md workflow docs | small | — |
+| ~~D3. CLAUDE.md workflow docs~~ **done 2026-07-18** | small | — |
 | Desktop plan Phase 1+ | per its own plan | `./build.sh check` clean |
 
 Each phase is its own commit; the repo stays deployable to web and Pi throughout.

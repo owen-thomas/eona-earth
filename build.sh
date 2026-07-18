@@ -51,9 +51,22 @@ build() {
   OUTFILE="$2"
   TMPFILE="$OUTFILE.tmp"
 
+  # Build stamp — substituted for every __BUILD_INFO__ token. Format is a
+  # stable protocol (see BUILD-SYSTEM-PLAN.md D1): "<platform> <sha>[-dirty]
+  # <iso-date>", one line. The desktop app's remote-content loader will diff
+  # these to decide freshness — don't reformat without updating that reader.
+  # `git diff --quiet HEAD` (not just against the index) so a staged-but-
+  # uncommitted edit still marks the stamp dirty.
+  platform_lc=$(echo "$TARGET" | tr 'A-Z' 'a-z')
+  sha=$(git rev-parse --short HEAD 2>/dev/null || echo unknown)
+  dirty=""
+  git diff --quiet HEAD -- "$SOURCE" 2>/dev/null || dirty="-dirty"
+  date_iso=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+  buildinfo="$platform_lc $sha$dirty $date_iso"
+
   mkdir -p "$(dirname "$OUTFILE")"
 
-  awk -v target="$TARGET" -v platforms="$PLATFORMS" '
+  awk -v target="$TARGET" -v platforms="$PLATFORMS" -v buildinfo="$buildinfo" '
     BEGIN {
       include = 1   # currently including output
       depth = 0     # nesting depth (0 = top level)
@@ -116,8 +129,11 @@ build() {
       next
     }
 
-    # normal line
-    { if (include) print }
+    # normal line — buildinfo is plain lowercase/digits/dashes/colons/T/Z,
+    # so it is safe as a gsub replacement string without escaping; awk
+    # treats & and \ specially there, so preserve that constraint if the
+    # stamp format ever changes.
+    { if (include) { gsub(/__BUILD_INFO__/, buildinfo); print } }
 
     END {
       if (fatal) exit 1
