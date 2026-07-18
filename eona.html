@@ -539,6 +539,12 @@
 <!-- @endif -->
 <!-- @if DESKTOP -->
     const PLATFORM = { name: 'desktop', antialias: true, renderScale: 1, maxDPR: 2, sphereSegments: 48, edgeAlphaStart: 0.97 };
+
+    // Hiding the Dock icon (main.js) puts the app under macOS's Accessory
+    // activation policy, which does not auto-activate the app when its
+    // window is clicked (unlike a normal app) — request activation
+    // explicitly so the window can actually receive keyboard focus.
+    document.addEventListener('pointerdown', () => window.eona?.activate?.());
 <!-- @endif -->
 
     // === PALEOGEOGRAPHIC SDF ATLAS (base64-encoded PNG) ===
