@@ -88,6 +88,7 @@ Layers stack bottom-to-top: `#infographic-layer` → `#earth-shadow` → `#earth
 - `build.sh` preprocesses `eona.html` into:
   - `dist/web/index.html` + `dist/web/images/` — served by Vercel and `server.js`
   - `dist/pi/clock.html` — deployed to the Raspberry Pi
+  - `dist/desktop/app/index.html` — loaded by the Electron shell (see `DESKTOP-APP-PLAN.md`)
 
 ### Development Workflow
 
@@ -514,7 +515,7 @@ Single wall cable: only the Pi's USB-C power supply runs to the wall. Display is
 
 **Offline assets** — bundled locally, no internet required:
 - `lib/three.r128.min.js`
-- `fonts/space-grotesk-variable.woff2`, `fonts/space-mono-400.woff2`, `fonts/space-mono-700.woff2` — note: the Pi `@font-face` block declares only Grotesk + Mono 400; Mono 700 has no face declared (synthetic bold — fix scheduled in BUILD-SYSTEM-PLAN.md C3). `fonts/fraunces-400.woff2` is bundled but unreferenced.
+- `fonts/space-grotesk-variable.woff2`, `fonts/space-mono-400.woff2`, `fonts/space-mono-700.woff2` — all three have `@font-face` declarations (Pi/Desktop shared block; BUILD-SYSTEM-PLAN.md C3 landed). `fonts/fraunces-400.woff2` is bundled but unreferenced.
 - Logo SVG referenced as `images/logo-clock.svg`
 
 **Autostart** (`~/.config/autostart/clock.desktop`):

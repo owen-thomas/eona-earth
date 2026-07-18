@@ -204,7 +204,7 @@ do_desktop() {
   copy_assets lib dist/desktop/app/lib
 }
 
-# check: build both targets into a temp dir (also exercises full validation),
+# check: build all targets into a temp dir (also exercises full validation),
 # then diff only the generated HTML against dist/ — asset dirs are verbatim
 # copies and just add noise when dist/ is stale.
 do_check() {

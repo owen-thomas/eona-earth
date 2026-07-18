@@ -39,9 +39,32 @@ transparent-window compositing are less predictable.
 
 ---
 
-## Phase 1 — Build-step integration (`DESKTOP` target)
+## Phase 1 — Build-step integration (`DESKTOP` target) — landed 2026-07-18 (32bb094)
 
-### 1a. Extend `build.sh`
+> **Closed.** The actual diff was smaller than 1a/1b below describe, because
+> Phase C had already collapsed most WEB/PI differences into shared code:
+> - `build.sh`: `DESKTOP` added to `PLATFORMS`; `do_desktop()` mirrors
+>   `do_pi()` (build + `copy_assets` for images/fonts/lib into
+>   `dist/desktop/app/`); `desktop)` case branch; `do_check()` got a third
+>   hand-written pair.
+> - `eona.html`: a `DESKTOP` head block (local three.js, plain title, no
+>   OG/analytics); the Pi-only fonts block became `@if PI|DESKTOP` (one
+>   OR-list, no duplication); a `--clock-size: min(100vw, 100vh)` override;
+>   a `desktop` `PLATFORM` literal (same values as `web` — real Chromium).
+> - **No changes needed** to `html`/`body`/`.clock-container`, the renderer,
+>   or the resize handler — Phase C's `PLATFORM` object and the
+>   already-unconditional transparent/flex-centred defaults meant desktop's
+>   wants (web-quality rendering, transparent background, relative-positioned
+>   container) fell out of the existing WEB-default code path for free.
+> - Verified via `./build.sh check`: web/pi output byte-identical; desktop
+>   build renders correctly in-browser with local fonts/three.js, no console
+>   errors.
+>
+> 1a/1b below are kept as historical record of the original plan; don't
+> re-derive from them — the bullets above are what's actually in the repo.
+> Phases 2–6 are still ahead as originally scoped.
+
+### 1a. Extend `build.sh` (historical plan, superseded — see note above)
 
 - The awk directive regex on line 43 hardcodes platforms:
   `/@if[[:space:]]+(WEB|PI)/` → change to `(WEB|PI|DESKTOP)`.
@@ -70,7 +93,7 @@ transparent-window compositing are less predictable.
 > `build.sh` and `eona.html` before starting Phase 1, rather than following
 > these specifics literally.
 
-### 1b. Add `<!-- @if DESKTOP -->` blocks to `eona.html`
+### 1b. Add `<!-- @if DESKTOP -->` blocks to `eona.html` (historical plan, superseded — see note above)
 
 Desktop is "web rendering quality + Pi offline assets + transparency". Blocks needed
 at each existing `@if` site:
