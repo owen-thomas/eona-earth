@@ -5,7 +5,7 @@ const { contextBridge, ipcRenderer } = require('electron');
 // signature — add new ones instead, and gate renderer features on their
 // presence (window.eona?.method) rather than on platform name.
 contextBridge.exposeInMainWorld('eona', {
-  version: 3,
+  version: 4,
   quit: () => ipcRenderer.send('quit'),
   // Requests the app take active/key status — needed because hiding the
   // Dock icon (accessory activation policy) stops macOS from doing this
@@ -22,4 +22,12 @@ contextBridge.exposeInMainWorld('eona', {
   // on pointerup/pointercancel; main moves the window via cursor polling.
   beginDrag: () => ipcRenderer.send('begin-drag'),
   endDrag: () => ipcRenderer.send('end-drag'),
+  // Custom resize (native resize is off — see main.js BrowserWindow config).
+  // Same cursor-polling architecture as drag. Passes the initial grab point
+  // in screen coordinates so main can pin the opposite edge of the ring in
+  // place and resize from wherever it was grabbed, rather than symmetrically
+  // from centre (which made growing the window hard unless it happened to
+  // already be centred on the display).
+  beginResize: (screenX, screenY) => ipcRenderer.send('begin-resize', { x: screenX, y: screenY }),
+  endResize: () => ipcRenderer.send('end-resize'),
 });

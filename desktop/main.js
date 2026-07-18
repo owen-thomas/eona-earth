@@ -9,6 +9,7 @@ if (!app.requestSingleInstanceLock()) {
 } else {
   let win = null;
   let dragInterval = null;
+  let resizeInterval = null;
 
   // Manual drag, not -webkit-app-region: drag — that property hit-tests
   // against layout bounding boxes, not painted/masked shape, so it can't
@@ -18,11 +19,18 @@ if (!app.requestSingleInstanceLock()) {
   // position directly (rather than streaming renderer pointermove deltas)
   // avoids a feedback loop between window position and client-relative
   // coordinates, since screen coordinates don't shift as the window moves
-  // under a stationary cursor.
+  // under a stationary cursor. Same architecture for resize below.
   function stopDrag() {
     if (dragInterval) {
       clearInterval(dragInterval);
       dragInterval = null;
+    }
+  }
+
+  function stopResize() {
+    if (resizeInterval) {
+      clearInterval(resizeInterval);
+      resizeInterval = null;
     }
   }
 
@@ -71,14 +79,19 @@ if (!app.requestSingleInstanceLock()) {
     win.setAlwaysOnTop(true, 'floating'); // above normal windows, below panels (macOS)
 
     // Safety net: if pointerup/pointercancel is ever missed (e.g. focus
-    // lands elsewhere mid-drag), stop the drag polling loop anyway — leaving
-    // it running would make the window follow the cursor forever.
-    win.on('blur', () => stopDrag());
+    // lands elsewhere mid-gesture), stop both polling loops anyway — leaving
+    // either running would make the window keep following/resizing forever.
+    win.on('blur', () => {
+      stopDrag();
+      stopResize();
+    });
 
     // Documentation of intent only — resizable:false disables native resize
-    // entirely, so this doesn't constrain anything yet. Phase 4's custom
-    // resize (setBounds) must enforce both squareness and the 320px floor
-    // itself; don't assume this line is doing that work.
+    // entirely, so this doesn't constrain anything by itself. Squareness and
+    // the 320px floor are enforced explicitly in the begin-resize handler
+    // below (setBounds always computes a square, size clamped to >= 320);
+    // confirmed by direct test that setBounds bypasses both resizable:false
+    // and this aspect-ratio lock on macOS, so neither fights the resize math.
     win.setAspectRatio(1);
 
     // Not a fallback — the only viable path. Cmd+Q is normally dispatched via
@@ -119,18 +132,73 @@ if (!app.requestSingleInstanceLock()) {
   });
 
   ipcMain.on('begin-drag', () => {
-    if (!win || dragInterval) return;
+    // Mutual exclusion is enforced here, not just by the renderer's
+    // half-open ring geometry — IPC is the untrusted edge of this design,
+    // and a stray message from a stale gesture shouldn't start a second
+    // loop fighting the first over win.setPosition/setBounds.
+    if (!win || dragInterval || resizeInterval) return;
     const startCursor = screen.getCursorScreenPoint();
     const startBounds = win.getBounds();
+    let lastX = startBounds.x;
+    let lastY = startBounds.y;
     dragInterval = setInterval(() => {
       const cur = screen.getCursorScreenPoint();
-      win.setPosition(
-        Math.round(startBounds.x + (cur.x - startCursor.x)),
-        Math.round(startBounds.y + (cur.y - startCursor.y))
-      );
+      const x = Math.round(startBounds.x + (cur.x - startCursor.x));
+      const y = Math.round(startBounds.y + (cur.y - startCursor.y));
+      if (x === lastX && y === lastY) return; // skip redundant setPosition on a stationary cursor
+      lastX = x;
+      lastY = y;
+      win.setPosition(x, y);
     }, 16);
   });
   ipcMain.on('end-drag', () => stopDrag());
+
+  ipcMain.on('begin-resize', (event, grabPoint) => {
+    if (!win || dragInterval || resizeInterval) return;
+    const startBounds = win.getBounds();
+    const centerX = startBounds.x + startBounds.width / 2;
+    const centerY = startBounds.y + startBounds.height / 2;
+    const radius = startBounds.width / 2;
+
+    // Anchor = the point diametrically opposite the grab, at the original
+    // radius — pinned in screen space for the rest of the gesture, so the
+    // window extends from wherever the ring was grabbed instead of growing
+    // symmetrically from centre. (Centre-anchored resize was the first
+    // attempt: it made it hard to grow the window unless it was already
+    // centred on the display, and clamping to the work area to keep it
+    // on-screen caused a visible jump the instant a resize began near an
+    // edge — deliberately uncapped now, so growing off-screen is allowed.)
+    let dx = grabPoint.x - centerX;
+    let dy = grabPoint.y - centerY;
+    let len = Math.hypot(dx, dy);
+    if (len === 0) { dx = 1; dy = 0; len = 1; } // degenerate: shouldn't happen from a ring press, but keep this well-defined
+    const anchor = { x: centerX - (dx / len) * radius, y: centerY - (dy / len) * radius };
+
+    let lastSize = startBounds.width;
+    resizeInterval = setInterval(() => {
+      const cur = screen.getCursorScreenPoint();
+      const ax = cur.x - anchor.x;
+      const ay = cur.y - anchor.y;
+      const dist = Math.hypot(ax, ay);
+      const size = Math.max(320, Math.round(dist));
+      if (size === lastSize) return; // skip redundant setBounds (real resize + Three.js framebuffer realloc) on a stationary cursor
+      lastSize = size;
+      // Recompute centre from the anchor rather than the raw cursor position,
+      // so the anchor stays exactly pinned even where the 320 floor clamps
+      // size below the raw anchor-to-cursor distance.
+      const ux = dist > 0 ? ax / dist : 1;
+      const uy = dist > 0 ? ay / dist : 0;
+      const newCenterX = anchor.x + ux * size / 2;
+      const newCenterY = anchor.y + uy * size / 2;
+      win.setBounds({
+        x: Math.round(newCenterX - size / 2),
+        y: Math.round(newCenterY - size / 2),
+        width: size,
+        height: size,
+      });
+    }, 16);
+  });
+  ipcMain.on('end-resize', () => stopResize());
 
   app.whenReady().then(() => {
     if (process.platform === 'darwin') app.dock.hide(); // before window creation — hiding after causes focus-loss/icon-flash quirks

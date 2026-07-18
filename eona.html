@@ -540,15 +540,32 @@
 <!-- @if DESKTOP -->
     const PLATFORM = { name: 'desktop', antialias: true, renderScale: 1, maxDPR: 2, sphereSegments: 48, edgeAlphaStart: 0.97 };
 
-    // Margin-ring annulus check (SVG r174–200, Phase 0's settled drag zone),
-    // scaled the same way the CSS custom properties are: --clock-size is the
-    // on-screen diameter and the SVG viewBox is 400 units for that same
+    // Ring geometry (SVG units out of the 400-unit viewBox, scaled the same
+    // way the CSS custom properties are: --clock-size is the on-screen
     // diameter, so a boundary at SVG radius R is (clockSize * R / 400) px
-    // from window centre.
-    function inDesktopDragRing(clientX, clientY) {
+    // from window centre). Half-open so a press at exactly r196 belongs to
+    // exactly one ring, not both — otherwise begin-drag and begin-resize
+    // could both fire for the same press, fighting over setPosition/setBounds
+    // (main.js also enforces this mutual exclusion independently, since IPC
+    // is the untrusted edge of this design).
+    // Zones: 0–174 clock, 174–196 drag [Phase 3], 196–200 resize [Phase 4].
+    function desktopRingZone(clientX, clientY) {
       const clockSize = Math.min(window.innerWidth, window.innerHeight);
       const dist = Math.hypot(clientX - window.innerWidth / 2, clientY - window.innerHeight / 2);
-      return dist >= clockSize * 174 / 400 && dist <= clockSize * 200 / 400;
+      if (dist >= clockSize * 174 / 400 && dist < clockSize * 196 / 400) return 'drag';
+      if (dist >= clockSize * 196 / 400 && dist <= clockSize * 200 / 400) return 'resize';
+      return null;
+    }
+
+    // Octant-based resize cursor — a single fixed nwse-resize would be wrong
+    // for most of the ring (it implies a diagonal axis; at 12 o'clock the
+    // honest cursor is ns-resize, at 3 o'clock ew-resize). The four resize
+    // cursors already repeat every 90°, so angle mod 90 is enough.
+    function desktopResizeCursor(clientX, clientY) {
+      let angle = Math.atan2(clientY - window.innerHeight / 2, clientX - window.innerWidth / 2) * 180 / Math.PI;
+      if (angle < 0) angle += 360;
+      const octant = Math.round(angle / 45) % 8;
+      return ['ew-resize', 'nwse-resize', 'ns-resize', 'nesw-resize', 'ew-resize', 'nwse-resize', 'ns-resize', 'nesw-resize'][octant];
     }
 
     // Hiding the Dock icon (main.js) puts the app under macOS's Accessory
@@ -558,26 +575,36 @@
     //
     // Registered on the CAPTURE phase with stopPropagation for ring presses:
     // the shared container pointerdown handler (clock rotate/scrub) accepts
-    // any press inside the full disc, which includes this ring band — without
-    // stopping it here first, a window-drag press would also enter globe
-    // rotate-drag, feeding rotationOffset from the transient pointermoves of
-    // the window chasing the cursor. Capture fires before that bubble-phase
-    // listener, so this reliably keeps ring presses out of it (same isolation
-    // pattern the ghost handle uses via its own stopPropagation).
+    // any press inside the full disc, which includes both ring bands —
+    // without stopping it here first, a window-drag or resize press would
+    // also enter globe rotate-drag, feeding rotationOffset from the transient
+    // pointermoves of the window chasing the cursor. Capture fires before
+    // that bubble-phase listener, so this reliably keeps ring presses out of
+    // it (same isolation pattern the ghost handle uses via its own
+    // stopPropagation).
     document.addEventListener('pointerdown', (e) => {
       window.eona?.activate?.();
-      // Manual drag, not -webkit-app-region: drag — see main.js for why
-      // (bounding-box hit-testing can't produce a genuinely annular region).
-      if (inDesktopDragRing(e.clientX, e.clientY)) {
-        // Right-click in the ring is reserved for the future context menu
-        // (Phase 6) — don't let it start a drag or reach rotate/scrub either.
+      const zone = desktopRingZone(e.clientX, e.clientY);
+      if (zone) {
+        // Right-click in either ring is reserved for the future context menu
+        // (Phase 6) — don't let it start a drag/resize or reach rotate/scrub.
         if (e.button !== undefined && e.button !== 0) return;
-        window.eona?.beginDrag?.();
+        // Manual drag/resize, not -webkit-app-region: drag — see main.js for
+        // why (bounding-box hit-testing can't produce a genuinely annular
+        // region for either ring).
+        if (zone === 'drag') window.eona?.beginDrag?.();
+        else window.eona?.beginResize?.(e.screenX, e.screenY);
         e.stopPropagation();
       }
     }, { capture: true });
-    document.addEventListener('pointerup', () => window.eona?.endDrag?.());
-    document.addEventListener('pointercancel', () => window.eona?.endDrag?.());
+    document.addEventListener('pointerup', () => {
+      window.eona?.endDrag?.();
+      window.eona?.endResize?.();
+    });
+    document.addEventListener('pointercancel', () => {
+      window.eona?.endDrag?.();
+      window.eona?.endResize?.();
+    });
 
     // Click-through for the transparent corners outside the visible circle —
     // without this, the invisible corners steal clicks from windows
@@ -2711,6 +2738,16 @@
       const svg = document.getElementById('infographic-layer');
       const container = document.querySelector('.clock-container');
       container.addEventListener('mousemove', (e) => {
+<!-- @if DESKTOP -->
+        // Folded into this handler (rather than a second listener) so there's
+        // a single source of truth for container.style.cursor — a separate
+        // listener would race this one, and whichever registers/runs last
+        // would silently win.
+        if (desktopRingZone(e.clientX, e.clientY) === 'resize') {
+          container.style.cursor = desktopResizeCursor(e.clientX, e.clientY);
+          return;
+        }
+<!-- @endif -->
         if (!_indicatorHandle) return;
         const persistentSvg = document.getElementById('persistent-layer');
         const pRect = persistentSvg.getBoundingClientRect();
