@@ -236,7 +236,43 @@ therefore never assume a bridge method exists:
 
 ---
 
-## Phase 3 — Round window: transparency, click-through, drag
+## Phase 3 — Round window: transparency, click-through, drag — landed 2026-07-18 (c54da9b, mid-gesture/rotate fixes e68b772)
+
+> **Closed.** 3a and 3b landed close to plan. 3c did not — see below.
+> - **3b** landed as specced: state-change-only `setIgnoreMouse`, `forward:
+>   true` paired with it in main. One bug found after shipping, not before:
+>   the `mousemove` toggle checked position only, not button state — a
+>   held-button drag (scrub overshoot past the rim, or a fast window-drag
+>   under poll lag) could cross r200 mid-press, engage ignoring, and eat the
+>   eventual `pointerup` (buttons aren't forwarded, only move events are),
+>   leaving the gesture stuck. Fixed by freezing the toggle whenever
+>   `e.buttons !== 0` — safe, since a held-button gesture always starts from
+>   `ignore === false`. Also: `forward: true` doesn't work while devtools are
+>   open (test click-through with devtools closed), and there's a small,
+>   self-healing race on a fast corner-to-ring flick.
+> - **3c abandoned `-webkit-app-region: drag` entirely**, mask or otherwise.
+>   `app-region` hit-tests against layout bounding boxes, not painted/masked
+>   shape — a masked ring drags the *whole square* (mask only affects paint),
+>   and the documented-sounding nested-no-drag-square fallback only
+>   subtracts a square hole, which produces a drag region that works at the
+>   compass points and silently fails on the diagonals (1:30, 4:30, 7:30,
+>   10:30). It also eats `pointerdown` at the OS level, which would have
+>   removed ring clicks from the Phase 2 activation surface — a real
+>   regression given Cmd+Q depends on activation. Replaced with manual drag:
+>   renderer does a geometric annulus check on `pointerdown` and calls
+>   `beginDrag()`/`endDrag()`; main moves the window by polling
+>   `screen.getCursorScreenPoint()` (not streaming renderer deltas — avoids a
+>   feedback loop between window position and client-relative coordinates as
+>   the window moves under a stationary cursor), with a `blur`-triggered
+>   safety net. A second bug: the shared container `pointerdown` handler
+>   (rotate/scrub) accepts any press inside the full disc, which includes
+>   the drag ring — a window-drag press was also entering globe rotate-drag.
+>   Fixed by registering the drag/activate listener on the **capture phase**
+>   with `stopPropagation()` for ring presses (same isolation pattern the
+>   ghost handle already used via its own `stopPropagation`).
+> - 3a needed nothing new, as planned.
+> - The 3c snippet below (CSS mask/`app-region`) is kept as historical
+>   record of the original plan, not a description of what shipped.
 
 ### 3a. Circle rendering
 
@@ -257,7 +293,7 @@ Without this, the invisible corners steal clicks from windows underneath — the
   essential — it keeps mousemove flowing while ignored, so we can detect re-entry.
 - Throttle the IPC (only send on state *change*, not every move).
 
-### 3c. Window dragging
+### 3c. Window dragging (original plan, superseded — see landed note above)
 
 - Add a desktop-only overlay div: a ring covering SVG radii 174–200 (in CSS:
   absolutely positioned full-size circle with a transparent centre via
@@ -271,7 +307,62 @@ Without this, the invisible corners steal clicks from windows underneath — the
 
 ---
 
-## Phase 4 — Custom edge resize
+## Phase 4 — Custom edge resize — landed 2026-07-18 (1e2b25c, grab-offset fix same day)
+
+> **Closed.** Same `app-region`-free architecture as Phase 3, extended:
+> - Zones are half-open — drag `[174, 196)`, resize `[196, 200]` — so a
+>   press at exactly r196 belongs to exactly one ring. Enforced at *both*
+>   layers: the renderer's geometry, and mutual exclusion in main
+>   (`begin-drag`/`begin-resize` each refuse while the other's interval is
+>   live) — IPC is the untrusted edge of this design, so the renderer-side
+>   geometry alone isn't trusted to prevent both loops starting.
+> - **Resize anchors the edge diametrically opposite the grab point, not the
+>   window centre** — this reverses the plan's own "resizing around the
+>   window centre" text below, based on hands-on testing: centre-anchored
+>   resize made it hard to grow the window unless it already happened to be
+>   centred on the display. A related first attempt at a **maximum size
+>   clamp** (capping to the display's work area, to keep the window
+>   on-screen) caused a visible jump the instant a resize began near a
+>   screen edge. Both are replaced by: pin the point diametrically opposite
+>   the grab in screen space for the whole gesture, resize toward the
+>   cursor from there, and — a deliberate, explicit reversal of a reviewed
+>   recommendation — **no maximum clamp at all**. Growing the window larger
+>   than or partially off the display is allowed; only the 320px floor is
+>   enforced. Record this if revisiting: the work-area cap was a reasonable
+>   first instinct but wrong in practice.
+> - **Grab-offset bug, found after the anchor rework shipped**: the grab
+>   point sits within the resize band (r196–200), up to 2% inside the true
+>   rim, so `|grab − anchor|` at grab time is a few px short of the window's
+>   actual size. Without correcting for it, a motionless press read as
+>   "shrink" on the very first poll tick, and the grabbed edge tracked
+>   slightly inside the cursor for the whole gesture. Fixed the same way
+>   the scrub handle's own click-offset problem was fixed (see CLAUDE.md's
+>   `lastAngle` seeding note under Interaction — seed from the true position,
+>   absorb the click offset into the first delta): capture
+>   `sizeOffset = startBounds.width − |grab − anchor|` once at grab time, add
+>   it back into every subsequent tick's distance calculation.
+> - Cursor is octant-based (`ns`/`ew`/`nesw`/`nwse-resize`, four values
+>   repeating every 90°), folded into the *existing* shared cursor-setting
+>   `mousemove` handler rather than a second listener that would race it for
+>   `container.style.cursor`.
+> - No `resizeDelta` streaming — same reasoning as Phase 3's drag: main
+>   polls `screen.getCursorScreenPoint()` directly rather than accumulating
+>   renderer-streamed deltas, both for the feedback-loop reason and because
+>   it makes the redundant-call guard (skip `setBounds`/`setPosition` when
+>   the computed value hasn't changed) trivial to add once, in one place.
+> - Verified by direct test *before* building on it: `setBounds()` bypasses
+>   both `resizable: false` and `setAspectRatio(1)` on macOS — confirmed
+>   empirically, not assumed, given this project's track record with
+>   documented-but-untested platform behaviour (see Phase 2's accessory-
+>   policy findings).
+> - **Windows note for later**: `e.screenX`/`screenY` (CSS pixels) and
+>   Electron's screen coordinates (DIPs) coincide on macOS, so the
+>   cross-process coordinate math here is unverified on Windows, where
+>   display scaling can make them diverge. Add to the Windows checklist
+>   before shipping that platform — don't assume it carries over.
+> - The numbered plan below (resize-ring `app-region: no-drag`, delta
+>   streaming, centre-anchored math) is kept as historical record of the
+>   original plan, not a description of what shipped.
 
 Frameless + transparent means no native resize affordance. Implement in the renderer:
 

@@ -587,7 +587,12 @@
       const zone = desktopRingZone(e.clientX, e.clientY);
       if (zone) {
         // Right-click in either ring is reserved for the future context menu
-        // (Phase 6) — don't let it start a drag/resize or reach rotate/scrub.
+        // (Phase 6) — this only stops it from starting a drag/resize. It
+        // still reaches the container's own pointerdown (no stopPropagation
+        // on this path), but that handler has its own button !== 0 gate, so
+        // rotate/scrub don't trigger either — today. Phase 6 will need to
+        // revisit this whole branch anyway once a real context menu lands
+        // on this surface.
         if (e.button !== undefined && e.button !== 0) return;
         // Manual drag/resize, not -webkit-app-region: drag — see main.js for
         // why (bounding-box hit-testing can't produce a genuinely annular

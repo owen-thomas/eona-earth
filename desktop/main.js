@@ -174,13 +174,25 @@ if (!app.requestSingleInstanceLock()) {
     if (len === 0) { dx = 1; dy = 0; len = 1; } // degenerate: shouldn't happen from a ring press, but keep this well-defined
     const anchor = { x: centerX - (dx / len) * radius, y: centerY - (dy / len) * radius };
 
+    // Absorb the click offset into the first tick's delta rather than
+    // treating the grab point as if it were exactly on the rim — the same
+    // fix this project already made for the scrub handle (see CLAUDE.md:
+    // seed lastAngle from the handle's true angle, not the pointer's click
+    // position). The resize band spans r196-200, so the grab point sits up
+    // to 2% inside the true radius; without this, |grab - anchor| is
+    // already a few px short of the original size, so a motionless press
+    // reads as "shrink" on the very first tick and the grabbed edge tracks
+    // slightly inside the cursor for the whole gesture.
+    const initialDist = Math.hypot(grabPoint.x - anchor.x, grabPoint.y - anchor.y);
+    const sizeOffset = startBounds.width - initialDist;
+
     let lastSize = startBounds.width;
     resizeInterval = setInterval(() => {
       const cur = screen.getCursorScreenPoint();
       const ax = cur.x - anchor.x;
       const ay = cur.y - anchor.y;
       const dist = Math.hypot(ax, ay);
-      const size = Math.max(320, Math.round(dist));
+      const size = Math.max(320, Math.round(dist + sizeOffset));
       if (size === lastSize) return; // skip redundant setBounds (real resize + Three.js framebuffer realloc) on a stationary cursor
       lastSize = size;
       // Recompute centre from the anchor rather than the raw cursor position,
