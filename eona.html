@@ -555,12 +555,27 @@
     // activation policy, which does not auto-activate the app when its
     // window is clicked (unlike a normal app) — request activation
     // explicitly so the window can actually receive keyboard focus.
+    //
+    // Registered on the CAPTURE phase with stopPropagation for ring presses:
+    // the shared container pointerdown handler (clock rotate/scrub) accepts
+    // any press inside the full disc, which includes this ring band — without
+    // stopping it here first, a window-drag press would also enter globe
+    // rotate-drag, feeding rotationOffset from the transient pointermoves of
+    // the window chasing the cursor. Capture fires before that bubble-phase
+    // listener, so this reliably keeps ring presses out of it (same isolation
+    // pattern the ghost handle uses via its own stopPropagation).
     document.addEventListener('pointerdown', (e) => {
       window.eona?.activate?.();
       // Manual drag, not -webkit-app-region: drag — see main.js for why
       // (bounding-box hit-testing can't produce a genuinely annular region).
-      if (inDesktopDragRing(e.clientX, e.clientY)) window.eona?.beginDrag?.();
-    });
+      if (inDesktopDragRing(e.clientX, e.clientY)) {
+        // Right-click in the ring is reserved for the future context menu
+        // (Phase 6) — don't let it start a drag or reach rotate/scrub either.
+        if (e.button !== undefined && e.button !== 0) return;
+        window.eona?.beginDrag?.();
+        e.stopPropagation();
+      }
+    }, { capture: true });
     document.addEventListener('pointerup', () => window.eona?.endDrag?.());
     document.addEventListener('pointercancel', () => window.eona?.endDrag?.());
 
@@ -571,6 +586,16 @@
     // ignoring so re-entry can still be detected.
     let _desktopIgnoringMouse = false;
     document.addEventListener('mousemove', (e) => {
+      // Never toggle mid-gesture: the clock's scrub/rotate drags deliberately
+      // track pointermove on window so they keep working however far the
+      // pointer overshoots past the rim, and a fast window-drag can transiently
+      // read past r200 under poll lag too. Toggling ignore mid-press would
+      // start forwarding move events only (buttons aren't forwarded), so the
+      // eventual release lands on whatever window is underneath instead of
+      // this one — the renderer never sees pointerup and the gesture gets
+      // stuck. Freezing state while any button is held is safe: you can only
+      // be mid-press here if ignore was already false when it started.
+      if (e.buttons !== 0) return;
       const clockRadius = Math.min(window.innerWidth, window.innerHeight) / 2;
       const dist = Math.hypot(e.clientX - window.innerWidth / 2, e.clientY - window.innerHeight / 2);
       const outside = dist > clockRadius;
