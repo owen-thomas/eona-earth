@@ -2,11 +2,12 @@
 # build.sh — preprocess eona.html into platform variants
 #
 # Usage:
-#   ./build.sh web    → dist/web/index.html
-#   ./build.sh pi     → dist/pi/clock.html
-#   ./build.sh all    → both (also the default with no args)
-#   ./build.sh check  → build both targets to a temp dir, validate, and
-#                       diff the generated HTML against dist/ (no files written)
+#   ./build.sh web      → dist/web/index.html
+#   ./build.sh pi       → dist/pi/clock.html
+#   ./build.sh desktop  → dist/desktop/app/index.html
+#   ./build.sh all      → all three (also the default with no args)
+#   ./build.sh check    → build all targets to a temp dir, validate, and
+#                         diff the generated HTML against dist/ (no files written)
 #
 # Directives (HTML comment syntax, must be on their own line):
 #   <!-- @if WEB -->          ... <!-- @endif -->
@@ -27,7 +28,8 @@ set -e
 SOURCE="eona.html"
 WEB_OUT="dist/web/index.html"
 PI_OUT="dist/pi/clock.html"
-PLATFORMS="WEB PI"
+DESKTOP_OUT="dist/desktop/app/index.html"
+PLATFORMS="WEB PI DESKTOP"
 
 if [ ! -f "$SOURCE" ]; then
   echo "error: $SOURCE not found (run from repo root)" >&2
@@ -195,6 +197,13 @@ do_pi() {
   copy_assets lib dist/pi/lib
 }
 
+do_desktop() {
+  build DESKTOP "$DESKTOP_OUT"
+  copy_assets images dist/desktop/app/images
+  copy_assets fonts dist/desktop/app/fonts
+  copy_assets lib dist/desktop/app/lib
+}
+
 # check: build both targets into a temp dir (also exercises full validation),
 # then diff only the generated HTML against dist/ — asset dirs are verbatim
 # copies and just add noise when dist/ is stale.
@@ -204,8 +213,9 @@ do_check() {
 
   build WEB "$tmp_dir/web-index.html"
   build PI "$tmp_dir/pi-clock.html"
+  build DESKTOP "$tmp_dir/desktop-index.html"
 
-  for pair in "web:$WEB_OUT:$tmp_dir/web-index.html" "pi:$PI_OUT:$tmp_dir/pi-clock.html"; do
+  for pair in "web:$WEB_OUT:$tmp_dir/web-index.html" "pi:$PI_OUT:$tmp_dir/pi-clock.html" "desktop:$DESKTOP_OUT:$tmp_dir/desktop-index.html"; do
     name=${pair%%:*}
     rest=${pair#*:}
     old=${rest%%:*}
@@ -235,7 +245,7 @@ do_check() {
 }
 
 usage() {
-  echo "usage: $0 [web | pi | all | check]  (default: all)" >&2
+  echo "usage: $0 [web | pi | desktop | all | check]  (default: all)" >&2
 }
 
 case "${1:-all}" in
@@ -245,9 +255,13 @@ case "${1:-all}" in
   pi)
     do_pi
     ;;
+  desktop)
+    do_desktop
+    ;;
   all)
     do_web
     do_pi
+    do_desktop
     ;;
   check)
     do_check

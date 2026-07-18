@@ -35,8 +35,12 @@
   <title>Eona — Physical Clock</title>
   <script src="lib/three.r128.min.js"></script>
 <!-- @endif -->
+<!-- @if DESKTOP -->
+  <title>Eona</title>
+  <script src="lib/three.r128.min.js"></script>
+<!-- @endif -->
   <style>
-<!-- @if PI -->
+<!-- @if PI|DESKTOP -->
     @font-face {
       font-family: 'Space Grotesk';
       font-style: normal;
@@ -431,6 +435,13 @@
     body { display: block; background: #000000; }
     .clock-container { position: absolute; inset: 0; width: 1080px; height: 1080px; }
 <!-- @endif -->
+<!-- @if DESKTOP -->
+    /* === Desktop overrides: window is the clock, no margin ===
+       html/body stay at their unconditional defaults (transparent
+       background, flex-centred, --clock-size sized) — only the size
+       formula itself differs from web's windowed -96px margin. */
+    :root { --clock-size: min(100vw, 100vh); }
+<!-- @endif -->
 
   </style>
 </head>
@@ -525,6 +536,9 @@
 <!-- @endif -->
 <!-- @if PI -->
     const PLATFORM = { name: 'pi',  antialias: false, renderScale: 0.5, maxDPR: 1, sphereSegments: 32, edgeAlphaStart: 0.88 };
+<!-- @endif -->
+<!-- @if DESKTOP -->
+    const PLATFORM = { name: 'desktop', antialias: true, renderScale: 1, maxDPR: 2, sphereSegments: 48, edgeAlphaStart: 0.97 };
 <!-- @endif -->
 
     // === PALEOGEOGRAPHIC SDF ATLAS (base64-encoded PNG) ===
